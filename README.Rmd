@@ -1,0 +1,202 @@
+---
+output: github_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(magrittr)
+library(readr)
+library(stringr)
+library(ggplot2)
+library(cowplot)
+library(glue)
+library(reshape2)
+knitr::opts_chunk$set(echo = FALSE, fig.align ='center')
+
+# load table and get unique characters
+
+charTable = read_tsv("charTable.tsv")
+uniqueTable = charTable %>% arrange(desc(level)) %>% filter(!duplicated(paste(name,justClass)))
+
+
+# detect non unique characters that multiclassed
+# this is somewhat of a heuristic
+multiClassed = uniqueTable %>% filter(grepl('\\|',justClass))
+singleClassed = uniqueTable %>% filter(!grepl('\\|',justClass))
+
+
+matchingNames = multiClassed$name[multiClassed$name %in% singleClassed$name]%>% na.omit 
+
+isDuplicate = matchingNames %>% sapply(function(nm){
+    multiChar = multiClassed %>% filter(name == nm)
+    singleChar = singleClassed %>% filter(name == nm)
+    
+    if(nrow(multiChar) != 1 | nrow(singleChar) != 1){
+        warning('Not 1-1 match. Skipping')
+        return(FALSE)
+    } else{
+        isSubset = str_split(multiChar$justClass,pattern = '\\|') %>% {.[[1]]} %>% {singleChar$justClass %in% .}
+        isHigherLevel = multiChar$level > singleChar$level
+        return(isSubset & isHigherLevel)
+    }
+})
+
+singleClassed %<>% filter(!name %in% matchingNames[isDuplicate])
+
+uniqueTable = rbind(singleClassed,multiClassed)
+
+
+```
+
+# DnD character statistics
+
+## Introduction
+
+Almost a year ago FiveThirtyEight published a short article called 
+[Is Your D&D Character Rare?](https://fivethirtyeight.com/features/is-your-dd-character-rare/).
+It was a product of a deal between Curse and FiveThirtyEight which meant the data
+was not available to anyone else which, I thought at the time, was a shame. Shortly
+after that I released a few add ons ([1](https://oganm.github.io/printSheetApp/),[2](https://oganm.github.io/5eInteractiveSheet/)) for a popular mobile application, [Fifth Edition Character Sheet](https://play.google.com/store/apps/details?id=com.wgkammerer.testgui.basiccharactersheet.app&hl=en_CA) 
+which allowed me to collect the users' character sheets. 
+
+After 3.5 months of data collection
+I have a whopping... `r  nrow(uniqueTable)` unique characters in my database that I can play with. Well... I'm not
+as popular as DnDBeyond but I don't see anyone else waving around thousands of character sheets for us to 
+data mine so it'll have to do.
+
+## Is Your D&D Character Rare? II
+
+To start with let's repeat the original analysis from FiveThirtyEight. I am not going to pretend
+like I have many thousands of samples so instead of per 100,000 this shows class and race combinations per 100
+characters. You'll also notice that there are decimal points. In FiveThirtyEight's table, characters with multiple classes count once for each class. Here I divided multiclassed characters based on the proportion of their class levels. For instance a character who is a Fighter 5/Rogue 15 will add 0.75 to the rogue count and 0.25 to the fighter count. It also includes all races.
+
+```{r,fig.width=9}
+# the way races are encoded in the app is a little silly. sub-races are 
+# not recorded separately. essentially race information is lost other
+# than a text field after it's effects are applied during creation
+# here, I define regex that matches races.
+# kind of an overkill as only few races actually required special care
+races  = uniqueTable$race %>% unique
+races = c(Aarakocra = 'Aarakocra',
+          Aasimar = 'Aasimar',
+          Bugbear= 'Bugbear',
+          Dragonborn = 'Dragonborn',
+          Dwarf = 'Dwarf',
+          Elf = '(?<!Half-)Elf',
+          Firbolg = 'Firbolg',
+          Genasi= 'Genasi',
+          Gith = 'Geth',
+          Gnome = 'Gnome',
+          Goblin='Goblin',
+          Goliath = 'Goliath',
+          'Half-Elf' = '(Half-Elf)|(Variant)',
+          'Half-Orc' = 'Half-Orc',
+          Halfling = 'Halfling',
+          Hobgoblin = 'Hobgoblin',
+          Human = 'Human',
+          Kenku = 'Kenku',
+          Kobold = 'Kobold',
+          Lizardfolk = 'Lizardfolk',
+          Orc = '(?<!Half-)Orc',
+          'Yaun-Ti' = 'Serpentblood',
+          Tabaxi = 'Tabaxi',
+          Tiefling ='Tiefling|Lineage',
+          Triton = 'Triton',
+          Turtle = 'Turtle|Tortle')
+uniqueTable$justClass %<>% gsub(pattern = 'Revised ', replacement = '',x = .)
+uniqueTable$class %<>% gsub(pattern = 'Revised ', replacement = '',x = .)
+
+
+classes = uniqueTable$justClass %>% str_split('\\|') %>% unlist %>% unique
+coOccurenceMatrix = matrix(0 , nrow=length(races),ncol = length(classes))
+colnames(coOccurenceMatrix) = classes
+rownames(coOccurenceMatrix) = names(races)
+for (i in seq_along(races)){
+    for (j in seq_along(classes)){
+        ((grepl(races[i],uniqueTable$race,perl= TRUE)) * {
+            classLevel  =str_extract(uniqueTable$class,glue('(?<={classes[j]} )[0-9]+')) %>% {.[is.na(.)] = 0;.} %>% as.integer()
+            classLevel/uniqueTable$level
+            }) %>% sum -> coOcc
+        coOccurenceMatrix[i,j] = coOcc
+    }
+}
+
+coOccurenceMatrixSubset = coOccurenceMatrix[,!coOccurenceMatrix %>% apply(2,sum) %>% {.<2}]
+
+coOccurenceMatrixSubset = coOccurenceMatrixSubset[!coOccurenceMatrixSubset %>% apply(1,sum) %>% {.<1},]
+
+coOccurenceMatrixSubset = 
+    coOccurenceMatrixSubset[coOccurenceMatrixSubset %>% apply(1,sum) %>% order(decreasing = FALSE),
+                            coOccurenceMatrixSubset %>% apply(2,sum) %>% order(decreasing = TRUE)]
+
+coOccurenceMatrixSubset = coOccurenceMatrixSubset/(sum(coOccurenceMatrix))* 100
+
+
+classSums = coOccurenceMatrixSubset %>% apply(2,sum)
+raceSums = coOccurenceMatrixSubset %>% apply(1,sum)
+
+coOccurenceMatrixSubset = cbind(coOccurenceMatrixSubset,raceSums)
+
+
+coOccurenceMatrixSubset = rbind(Total = c(classSums,NA), coOccurenceMatrixSubset)
+colnames(coOccurenceMatrixSubset)[ncol(coOccurenceMatrixSubset)] = "Total"
+
+coOccurenceFrame = coOccurenceMatrixSubset %>% melt() 
+names(coOccurenceFrame)[1:2] = c('Race','Class')
+
+coOccurenceFrame %<>% mutate(fillCol = value*(Race!='Total' & Class!='Total'))
+
+coOccurenceFrame %>% ggplot(aes(x = Class,y = Race)) +
+    geom_tile(aes(fill = fillCol),show.legend = FALSE)+
+    scale_fill_continuous(low = 'white',high = '#46A948',na.value = 'white')+
+    # viridis::scale_fill_viridis() + 
+    geom_text(aes(label = value %>% round(2) %>% format(nsmall=2))) + 
+    scale_x_discrete(position='top') + xlab('') + ylab('') + 
+    theme(axis.text.x = element_text(angle = 30,vjust = 0.5,hjust = 0))
+
+```
+
+Despite the methodoligal differences, these results seem to match with FiveThirtyEight data. Graph below shows the % occurence of a class/race combination in FiveThityEight data and my data.
+
+
+```{r,message=FALSE,fig.height=3.5,fig.width=3.5}
+fiveThirtyEight = read_tsv('538.tsv') %>% melt()
+names(fiveThirtyEight)[2] = 'Class'
+
+fiveThirtyEight %<>% mutate(Class = as.character(Class)) %>%
+    arrange(Race,Class) %>% filter(Race !='TOTAL' & Class != 'TOTAL')
+
+coOccurenceFrame %<>% mutate(Race = toupper(Race), Class = toupper(Class)) %>% 
+    arrange(Race,Class) %>% 
+    filter(Race %in% fiveThirtyEight$Race & Class %in% fiveThirtyEight$Class)
+
+data.frame(FiveThirtyEight = fiveThirtyEight$value/1000, oganm = coOccurenceFrame$value,
+           class = coOccurenceFrame$Class,race = coOccurenceFrame$Race) %>% 
+    ggplot(aes(x = oganm,y = FiveThirtyEight)) + geom_point()
+
+```
+
+## Mutliclass networks
+
+Since our dataset includes multiclassed characters, we can see which classed tend to appear
+together 
+
+## About the data
+
+Unique characters are aquired by grouping the characters that share the same name and class
+and picking the higher level version. If a multiclassed character shares name with a single
+classed character, I assume they are duplicates if the single classed character is lower level and
+its class matches with one of the classes of the multiclassed character.
+
+As all data, this data comes with caveats. It is a subset of all DnD players who are using a
+particular mobile application who also know about and use my applications and consented
+to let me to keep their character sheets. I don't have reason
+to think that these would be enriching certain character building choices but it's
+something to keep in mind.
+
+I do believe however it is likely to have less test characters
+than DnDBeyond because my tools require a pre-existing character created in a different tool.
+Even if a user wants to just test it out they are likely to have a pre-existing character.
+This is of course my humble opinion (in fact 2 characters in my corpus are named "Test").
