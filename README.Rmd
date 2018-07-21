@@ -1,5 +1,6 @@
 ---
 output: github_document
+always_allow_html: yes
 editor_options: 
   chunk_output_type: console
 ---
@@ -13,13 +14,16 @@ library(ggplot2)
 library(cowplot)
 library(glue)
 library(reshape2)
+library(igraph)
+library(plotly)
 knitr::opts_chunk$set(echo = FALSE, fig.align ='center')
 
 # load table and get unique characters
 
 charTable = read_tsv("charTable.tsv")
 uniqueTable = charTable %>% arrange(desc(level)) %>% filter(!duplicated(paste(name,justClass)))
-
+uniqueTable$justClass %<>% gsub(pattern = 'Revised ', replacement = '',x = .)
+uniqueTable$class %<>% gsub(pattern = 'Revised ', replacement = '',x = .)
 
 # detect non unique characters that multiclassed
 # this is somewhat of a heuristic
@@ -105,8 +109,7 @@ races = c(Aarakocra = 'Aarakocra',
           Tiefling ='Tiefling|Lineage',
           Triton = 'Triton',
           Turtle = 'Turtle|Tortle')
-uniqueTable$justClass %<>% gsub(pattern = 'Revised ', replacement = '',x = .)
-uniqueTable$class %<>% gsub(pattern = 'Revised ', replacement = '',x = .)
+
 
 
 classes = uniqueTable$justClass %>% str_split('\\|') %>% unlist %>% unique
@@ -172,16 +175,48 @@ coOccurenceFrame %<>% mutate(Race = toupper(Race), Class = toupper(Class)) %>%
     arrange(Race,Class) %>% 
     filter(Race %in% fiveThirtyEight$Race & Class %in% fiveThirtyEight$Class)
 
-data.frame(FiveThirtyEight = fiveThirtyEight$value/1000, oganm = coOccurenceFrame$value,
-           class = coOccurenceFrame$Class,race = coOccurenceFrame$Race) %>% 
-    ggplot(aes(x = oganm,y = FiveThirtyEight)) + geom_point()
+corFrame = data.frame(FiveThirtyEight = fiveThirtyEight$value/1000, oganm = coOccurenceFrame$value,
+           class = coOccurenceFrame$Class,race = coOccurenceFrame$Race)
 
+(corFrame %>% ggplot(aes(x = oganm,y = FiveThirtyEight,text = paste(class, race))) + geom_point()) %>%
+    ggplotly
 ```
 
-## Mutliclass networks
+## Is your multiclass combination rare?
 
 Since our dataset includes multiclassed characters, we can see which classed tend to appear
-together 
+together. Note that our sample size much smaller here (`r nrow(multiClassed)` characters).
+
+```{r}
+
+coOccurence = multiClassed$justClass
+uniqueClasses =  coOccurence %>% strsplit('\\|') %>% unlist %>% unique
+uniqueClasses = uniqueClasses[!uniqueClasses %in% 'Artificer']
+adjMatrix = matrix(0,nrow= length(uniqueClasses),ncol = length(uniqueClasses))
+
+for (i in seq_along(uniqueClasses)){
+    for(j in seq_along(uniqueClasses)){
+        if(i !=j){
+            adjMatrix[i,j] = sum(grepl(x = coOccurence,pattern = uniqueClasses[i]) &  grepl(x = coOccurence,pattern = uniqueClasses[j]))
+        }
+    }
+}
+rownames(adjMatrix) = uniqueClasses
+colnames(adjMatrix) = uniqueClasses
+network=graph_from_adjacency_matrix( adjMatrix, weighted=T, mode="undirected", diag=F)
+E(network)$width <- E(network)$weight
+
+maxWeight = E(network)$weight %>% max
+maxStrength = strength(network) %>% max
+
+plot(network,layout = layout_in_circle,
+     vertex.frame.color="white",
+     vertex.label.color="black",
+     vertex.size = strength(network),
+     main = 'Multiclassing network')
+
+
+```
 
 ## About the data
 
