@@ -26,7 +26,6 @@ getUniqueTable = function(charTable){
     uniqueTable = charTable %>% arrange(desc(level)) %>% filter(!duplicated(paste(name,justClass))) %>% 
         filter(!level > 20)
     # detect non unique characters that multiclassed
-    # this is somewhat of a heuristic
     multiClassed = uniqueTable %>% filter(grepl('\\|',justClass))
     singleClassed = uniqueTable %>% filter(!grepl('\\|',justClass))
     
@@ -59,11 +58,13 @@ getUniqueTable = function(charTable){
 # load table and get unique characters
 
 charTable = read_tsv("charTable.tsv")
-
+# group levels at common feat acquisition points. sorry fighters and rogues
 charTable %<>% mutate(levelGroup = cut(level,
                                       breaks = c(0,3,7,11,15,18,20),
                                       labels  = c('1-3','4-7','8-11','12-15','16-18','19-20')))
 
+# for anyone looking at this and confused by the weird syntax
+# see https://stackoverflow.com/questions/1826519/how-to-assign-from-a-function-which-returns-more-than-one-value
 list[keepRevised,,] = getUniqueTable(charTable)
 charTable$justClass %<>%  gsub(pattern = 'Revised ', replacement = '',x = .)
 charTable$class %<>%  gsub(pattern = 'Revised ', replacement = '',x = .)
@@ -71,9 +72,12 @@ charTable$class %<>%  gsub(pattern = 'Revised ', replacement = '',x = .)
 list[uniqueTable,singleClassed,multiClassed] = getUniqueTable(charTable)
 
 
+barPalette = c('#7DD4A6','#C15BC5','#D65242','#415455',
+               '#D2A75C','#8FD25B','#D15B86','#A5B5BE','#727EC6',
+               '#567441','#754334','#5E3A60','#77B0D0')
 ```
 
-# Is your D&D rare? (WIP)
+# Is your D&D character rare? II: Off-brand edition
 
 ## Introduction
 
@@ -82,23 +86,26 @@ About a year ago FiveThirtyEight published a short article called
 It was a product of a deal between Curse and FiveThirtyEight which meant the data
 was not available to anyone else. I was a little jealous that I couldn't play with the data and disappointed that they only counted class race combinations and called it a day.
 
-Shortly after that I released a few add ons ([1](https://oganm.github.io/printSheetApp/),[2](https://oganm.github.io/5eInteractiveSheet/)) for a [popular mobile application](https://play.google.com/store/apps/details?id=com.wgkammerer.testgui.basiccharactersheet.app&hl=en_CA) which allowed me to collect the users' character sheets. 
+Shortly after that I released a few add-ons ([1](https://oganm.github.io/printSheetApp/),[2](https://oganm.github.io/5eInteractiveSheet/)) for a [popular mobile application](https://play.google.com/store/apps/details?id=com.wgkammerer.testgui.basiccharactersheet.app&hl=en_CA) which allowed me to collect the users' character sheets. 
 
 After 3.5 months of data collection
 I have a whopping... `r  nrow(uniqueTable)` unique characters in my database that I can play with. Well... I'm not
 as popular as DnDBeyond but I don't see anyone else waving around thousands of character sheets for us to 
-data mine so it'll have to do.
+data mine, so it'll have to do.
 
-## Is Your D&D Character Rare II?
+## Is Your D&D Character Rare? II
 
 To start with let's repeat the original analysis from FiveThirtyEight. I am not going to pretend
 like I have many thousands of samples so instead of per 100,000 this shows class and race combinations per 100
-characters. You'll also notice that there are decimal points. In FiveThirtyEight's table, characters with multiple classes count once for each class. Here I divided multiclassed characters based on the proportion of their class levels. For instance a character who is a Fighter 5/Rogue 15 will add 0.75 to the rogue count and 0.25 to the fighter count. It also includes all races. Homebrew and UA classes are removed.
+characters. In FiveThirtyEight's table, characters with multiple classes count once for each class. Here I divided multiclassed characters based on the proportion of their class levels. For instance, a character who is a Fighter 5/Rogue 15 will add 0.75 to the rogue count and 0.25 to the fighter count. It also includes all races. Homebrew and UA classes are removed.
 
 ```{r fiveThirtyEightCopy,fig.width=9}
 # the way races are encoded in the app is a little silly. sub-races are 
 # not recorded separately. essentially race information is lost other
-# than a text field after it's effects are applied during creation
+# than a text field after it's effects are applied during creation.
+# The text field is also not too consistent. For instance if you are a 
+# variant it'll simply say "Variant" but if you are a variant human
+# it'll only say human
 # here, I define regex that matches races.
 # kind of an overkill as only few races actually required special care
 races  = uniqueTable$race %>% unique
@@ -181,7 +188,7 @@ coOccurenceFrame %>% ggplot(aes(x = Class,y = Race)) +
 
 ```
 
-Despite the methodoligal differences, these results seem to match with FiveThirtyEight data. Graph below shows the % occurence of a class/race combination in FiveThityEight data and my data.
+Despite the methodological differences, these results seem to correlate well with DnDBeyond data even though we seem to disagree on what most popular classes and races are. Graph below shows the % occurrence of a class/race combination in FiveThityEight data and my data.
 
 
 ```{r fiveThirtyEightCorr,message=FALSE,fig.height=3.5,fig.width=3.5}
@@ -195,39 +202,77 @@ coOccurenceFrame %<>% mutate(Race = toupper(Race), Class = toupper(Class)) %>%
     arrange(Race,Class) %>% 
     filter(Race %in% fiveThirtyEight$Race & Class %in% fiveThirtyEight$Class)
 
-corFrame = data.frame(FiveThirtyEight = fiveThirtyEight$value/1000, oganm = coOccurenceFrame$value,
+corFrame = data.frame(DnDBeyond = fiveThirtyEight$value/1000, oganm = coOccurenceFrame$value,
            class = coOccurenceFrame$Class,race = coOccurenceFrame$Race)
 
-corFrame %>% ggplot(aes(x = oganm,y = FiveThirtyEight,text = paste(class, race))) +
+corFrame %>% ggplot(aes(x = oganm,y = DnDBeyond,text = paste(class, race))) +
     geom_point() + 
-    ggtitle("Class-race combination %s at\n FiveThirtyEight vs oganm's data") ->p
+    ggtitle("Class-race combination %s at\n DnDBeyond vs oganm's data") ->p
 
-ply = plotly::ggplotly(p)
+ply = plotly::ggplotly(p) %>%  layout(xaxis=list(fixedrange=TRUE)) %>%
+    config(displayModeBar = F) %>% 
+    layout(yaxis=list(fixedrange=TRUE))
 ply$width = 500
-
+# rmarkdown seems to ignore alignment set using plotly
 div(ply,align = 'center')
 ```
 
 ## Is your character archetype rare?
 
+This is a little hard to visualize in a single plot. Alas we are short on space so you're going
+to have to mouse over to see the details. Each colored section shows a character archetype's proportion
+to the rest of the archetypes for the class. They are ordered from bottom to top in order of 
+frequency so the brown always show the most popular archetype and it goes downhill (but upwards in the plot) from there.
+
 ```{r}
 # uniqueTable$justClass
 
+classes = uniqueTable$justClass %>% str_split('\\|') %>% unlist
+archetypes = uniqueTable$subclass %>% str_split('\\|') %>% unlist
+
+
+archeFrame = data.frame(classes,archetypes) %>% filter(archetypes !='') 
+classSum = archeFrame$classes %>% table %>% sort(decreasing = TRUE)
+
+archeFrame %<>% group_by(classes,archetypes) %>% summarize(count = n()) %>% 
+    arrange(classes,(count)) %>% filter(classes %in% names(which(classSum>2))) %>% 
+    ungroup() %>% 
+    mutate(archetypes = factor(archetypes,levels = archetypes)) %>% 
+    group_by(classes) %>% 
+    mutate(ratio = count/sum(count)*100) %>%
+    mutate(classArcheID = as.integer(archetypes) - max(as.integer(archetypes)) +1) %>% ungroup() %>% mutate(classArcheID = as.factor(classArcheID)) %>% 
+    mutate(`%` = round(ratio))
+
+archeFrame %>% 
+    ggplot(aes(x = classes,y = ratio,fill = classArcheID,
+               label = archetypes,hede = count,hodo = `%`)) +
+    geom_bar(stat='identity') +
+     theme(axis.text.x = element_text(angle = 90,vjust = 0.5,hjust = 1 ),
+           legend.position = 'none') + 
+    scale_fill_manual(values = barPalette) + 
+    ggtitle('Archetype choices') + xlab('') + ylab('archetype % within class')->p
+
+ply = ggplotly(p,tooltip = c('label','hodo','hede')) %>% layout(xaxis=list(fixedrange=TRUE)) %>%
+    config(displayModeBar = F) %>% 
+    layout(yaxis=list(fixedrange=TRUE))
+div(ply,align='center')
 
 ```
 
-## Is your feat choice rare?
+
+
+## Are your feat choices rare?
 
 Jeremy Crawford once [tweeted](https://twitter.com/jeremyecrawford/status/969020122177331200?lang=en)
 
 > Another piece of D&D data: a majority of D&D characters don't use feats. Many players love the customization possible with feats, but a larger group of players is happy to make characters without feats. Feats are, therefore, not a driving force behind many players' choices. 
 
 We can see weather or not our data agrees. On a surface look `r round(sum(!is.na(uniqueTable$feats))/nrow(uniqueTable)*100)`% of all characters
-have at least one feat. However this is partially caused by  the fact that a significant portion (`r round(sum(uniqueTable$level == 1)/nrow(uniqueTable)*100)`%) 
+have at least one feat. However, this is partially caused by  the fact that a significant portion (`r round(sum(uniqueTable$level == 1)/nrow(uniqueTable)*100)`%) 
 of our characters are level 1. We can see that by higher levels, feat adoption rates increase significantly, suggesting that once given the opportunity, players are likely to pick a feat.
 
 
-```{r featProportions,fig.height=4}
+```{r featProportions,fig.height=4.3}
 uniqueTable %>% 
     filter(!is.na(levelGroup)) %>% 
     group_by(levelGroup) %>% 
@@ -247,13 +292,19 @@ uniqueTable %>%
 
 It can be postulated players spend most of their time between levels 4-15. `r uniqueTable %>% filter(as.integer(levelGroup) %in% c(2,3,4)) %>% {round(sum(!is.na(.$feats))/nrow(.)*100)}`% of all characters
 in this range has at least one feat. As I later discovered, this also somewhat correlates with the
-[data in DnDBeyond](https://twitter.com/BadEyeAdam/status/969435420676231169).
+[data in DnDBeyond](https://twitter.com/BadEyeAdam/status/969435420676231169) though the percentages
+here are higher overall.
 
 
-
+Next logical step is to examine which classes picks which feats, and which feats 
+are the most popular. The graph below shows which feat is selected the most and by which 
+class. Multiclassed characters are merged into their own category to reduce clutter.
+Any feat that is selected only once is removed. Again, mouse over the bars to see details.
 
 ```{r featBar}
-featedChars = singleClassed %>% filter(!is.na(feats)) %>%
+featedChars = uniqueTable %>%
+    filter(!is.na(feats)) %>%
+    mutate(justClass = {justClass[grepl('\\|',justClass)] = 'Multiclassed';justClass}) %>% 
     filter(justClass %in% names(which(table(justClass)>1)))
 class = featedChars$justClass
 feats = featedChars$feats
@@ -261,49 +312,156 @@ feats = featedChars$feats
 uniqueFeats = feats %>% str_split('\\|') %>% unlist %>% unique %>% na.omit()
 
 featPicks =  feats %>% str_split('\\|') 
-class = class
 
 names(featPicks) = class
 
 featFrame = 
     featPicks %>% melt %>% {names(.) = c('Feat','Class');.} %>%
     mutate(Feat = factor(Feat,levels = names(sort(table(Feat),decreasing = TRUE)))) %>% 
-    filter(Feat %in% names(which(table(Feat)>1))) %>% group_by(Feat,Class) %>% summarize(count = n())
+    filter(Feat %in% names(which(table(Feat)>1))) %>% group_by(Feat,Class) %>% summarize(Count = n())
 
 
 featFrame %>% 
-    ggplot(aes(x = Feat,y = count, fill = Class)) + geom_bar(stat = 'identity') +
+    ggplot(aes(x = Feat,y = Count, fill = Class)) +
+    geom_bar(stat = 'identity') +
     xlab('') + 
-     theme(axis.text.x = element_text(angle = 90,vjust = 0.5,hjust = 1 )) + 
-    scale_fill_manual(values = c('#7DD4A6','#C15BC5','#D65242','#415455','#D2A75C','#8FD25B',
-                                 '#D15B86','#A5B5BE','#727EC6','#567441','#754334','#5E3A60'))->p
+    theme(axis.text.x = element_text(angle = 90,vjust = 0.5,hjust = 1 )) + 
+    scale_fill_manual(values = barPalette)+
+    ggtitle('Feat popularity and class prefence')->p
 
-ply = plotly::ggplotly(p)
+ply = plotly::ggplotly(p) %>% config(displayModeBar = F) %>% layout(xaxis=list(fixedrange=TRUE)) %>% layout(yaxis=list(fixedrange=TRUE))
 
 ply$height = 500
 
 div(ply,align='center')
+# version of this code that splits multiclasses into components. results
+# in an ugly graph
 # singleClassed %>% filter(!is.na(feats))
+
+# 
+# feats = uniqueTable$feats %>% str_split('\\|') %>% unlist %>% na.omit%>%unique
+# 
+# classes = uniqueTable$justClass %>% str_split('\\|') %>% unlist %>% unique
+# featCoOccurence = matrix(0,nrow = length(feats),ncol = length(classes))
+# 
+# for (i in seq_along(feats)){
+#     for (j in seq_along(classes)){
+#         ((grepl(feats[i],uniqueTable$feats,perl= TRUE)) * {
+#             classLevel  =str_extract(uniqueTable$class,glue('(?<={classes[j]} )[0-9]+')) %>% {.[is.na(.)] = 0;.} %>% as.integer()
+#             classLevel/uniqueTable$level
+#             }) %>% sum -> coOcc
+#         featCoOccurence[i,j] = coOcc
+#     }
+# }
+# 
+# colnames(featCoOccurence) = classes
+# rownames(featCoOccurence) = feats
+# 
+# featCoOccurence = featCoOccurence[,!featCoOccurence %>% apply(2,sum) %>% {.<2}]
+# featCoOccurence = featCoOccurence[!featCoOccurence %>% apply(1,sum) %>% {.<1},]
+# 
+# featFrame = featCoOccurence %>% melt %>% filter(value!=0) %>% {names(.)=c('Feat','Class','Count');.}
+# popFeat = featFrame %>% group_by(Feat) %>% summarize(total = sum(Count)) %>% arrange(desc(total)) %>% filter(total>1)
+# featFrame %<>% 
+#     filter(Feat %in% popFeat$Feat) %>%
+#     mutate(Feat = factor(Feat,levels = popFeat$Feat),
+#            Class = factor(Class, levels = sort(as.character(unique(Class)))))
+# 
+# 
+# featFrame %>% 
+#     ggplot(aes(x = Feat,y = Count, fill = Class)) + geom_bar(stat = 'identity') +
+#     xlab('') + 
+#      theme(axis.text.x = element_text(angle = 90,vjust = 0.5,hjust = 1 )) + 
+#     scale_fill_manual(values = c('#7DD4A6','#C15BC5','#D65242','#415455','#D2A75C','#8FD25B',
+#                                  '#D15B86','#A5B5BE','#727EC6','#567441','#754334','#5E3A60'))+
+#     ggtitle('Feat popularity and class prefence')->p
+# 
+# ply = plotly::ggplotly(p)
+# 
+# ply$height = 500
+# 
+# div(ply,align='center')
 
 ```
 
+It is surprising that Elven Accuracy, a feat that is added in a supplement and resrticted to elves, is as 
+popular as many core book feats that are known to be highly effective. `r uniqueTable %>% filter(grepl('elf|Variant',race,ignore.case = TRUE)) %$% feats %>% {grepl('Elven A',.)} %>% {sum(.)/length(.)*100} %>% round`% of all elves and half-elves have this feat. Its appeal to both
+ranged weapon attackers and casters seems to make it a good choice for elves from many walks
+of life. Another interesting bit 
+is that the Magic Initiate feat seems be very popular amongst classes with spellcasting ability. I was
+always under the impression that Magic Initiate's main use case would be to add some magic to a mundane
+class.
+
+We can also look into how feats synergize with each other. The network below shows how often feats 
+are selected together. Unique connections are removed. Node sizes represent how many times a feat appeared together with another feat. The thickness of the lines between the nodes are determined
+by the number of characters both feats appear in.
+
+```{r featNetwork}
+featCoOccurence = uniqueTable %>% filter(grepl("\\|",feats)) %$% feats
+uniqueFeats = featCoOccurence %>% strsplit('\\|') %>% unlist %>% table %>% sort(decreasing = TRUE) %>% 
+    {.[.>0]}%>% names
+adjMatrix = matrix(0,nrow= length(uniqueFeats),ncol = length(uniqueFeats))
 
 
+for (i in seq_along(uniqueFeats)){
+    for(j in seq_along(uniqueFeats)){
+        if(i !=j){
+            adjMatrix[i,j] = sum(grepl(x = featCoOccurence,pattern = uniqueFeats[i]) &  grepl(x = featCoOccurence,pattern = uniqueFeats[j]))
+        }
+    }
+}
+
+rownames(adjMatrix) = uniqueFeats
+colnames(adjMatrix) = uniqueFeats
+
+adjMatrix = adjMatrix-1
+adjMatrix[adjMatrix < 1] = 0
+zeroFilter = adjMatrix %>% apply(1,sum) %>% {.!=0}
+adjMatrix = adjMatrix[zeroFilter,zeroFilter]
+
+
+network=graph_from_adjacency_matrix( adjMatrix, weighted=T, mode="undirected", diag=F)
+E(network)$width <- E(network)$weight*2.5
+
+maxWeight = E(network)$weight %>% max
+maxStrength = strength(network) %>% max
+par(mar=c(0,0,1,0))
+
+set.seed(1)
+plot(network,
+     vertex.frame.color="white",
+     vertex.label.color="black",
+     vertex.size = strength(network)*2.5,
+     main = 'Feat synergy network',
+     asp = 1)
+```
+
+Robustnessof elven accuracy is visible in this graph too as it is both selected by 
+characters trying to optimize their ranged and spell attacks. Crossbow Expert's 
+strong connection to Sharpshooter was a given as it leads to a devastating damage
+output. So was the connection between Sentinel and Polearm Master that are preferred by
+users of weapons with reach to control the battlefield and increase their damage output.
 
 ## Is your multiclass combination rare?
 
 Since our dataset includes multiclassed characters, we can see which classed tend to appear
 together. Note that our sample size much smaller here (`r nrow(multiClassed)` characters). Node sizes in the 
 network below show how many times a class appeared in all multiclassed characters. The thickness of the lines between the nodes
-are determined by the number of characters both classes appear in. For instance we see that most rangers
+are determined by the number of characters both classes appear in. For instance, we see that most rangers
 multiclass with rogues, while most rogues multiclass with fighters.
 
 ```{r multiClassingNetwork}
 
 coOccurence = multiClassed$justClass
 # in case I need them ordered
-uniqueClasses =   coOccurence %>% strsplit('\\|') %>% unlist %>% table %>% sort(decreasing = TRUE) %>% names
+uniqueClasses =   coOccurence %>% 
+    strsplit('\\|') %>%
+    unlist %>% 
+    table %>% 
+    sort(decreasing = TRUE) %>%
+    names
 uniqueClasses = uniqueClasses[!uniqueClasses %in% 'Artificer']
+
 adjMatrix = matrix(0,nrow= length(uniqueClasses),ncol = length(uniqueClasses))
 
 for (i in seq_along(uniqueClasses)){
@@ -333,25 +491,29 @@ plot(network,layout = layout_in_circle,
 
 ```
 
-
 While this network is good to show which classes tend to be chosen together, it doesn't
 give much information about how classes are distributed. In the below graph we look at
 what is ratio of class levels in individual characters. A Fighter 5/Rogue 15 would appear
-as a 25% data point in the Fighter column and 75% in the Rogue column.
+as a 25% data point in the Fighter column and 75% in the Rogue column. This will give
+us information about which classes are dipped in and which ones are used as the main class.
 
 ```{r multiClassingProportions}
 
 multiClassProportion = lapply(uniqueClasses, function(x){
     classSubset = multiClassed %>% filter(grepl(x,justClass))
     
-    classLevel = classSubset$class %>% str_extract(glue('{x} [0-9]+')) %>% str_extract('[0-9]+') %>% as.integer
+    classLevel = classSubset$class %>% 
+        str_extract(glue('{x} [0-9]+')) %>% 
+        str_extract('[0-9]+') %>%
+        as.integer
     
     classLevel/classSubset$level
     
 })
 
 multiClassTotalLevel =  lapply(uniqueClasses, function(x){
-    classSubset = multiClassed %>% filter(grepl(x,justClass))
+    classSubset = multiClassed %>% 
+        filter(grepl(x,justClass))
     totalLevel = classSubset$level
 
 })
@@ -359,8 +521,12 @@ multiClassTotalLevel =  lapply(uniqueClasses, function(x){
 names(multiClassProportion) = uniqueClasses
 names(multiClassTotalLevel) = uniqueClasses
 
-multiClassProportion %<>% melt
-order = multiClassProportion %>% group_by(L1) %>% summarise(mean = mean(value)) %>% arrange(desc(mean)) %$% L1
+multiClassProportion %<>%
+    melt
+order = multiClassProportion %>% 
+    group_by(L1) %>% 
+    summarise(mean = mean(value)) %>% 
+    arrange(desc(mean)) %$% L1
 
 multiClassProportion$L1 %<>% factor(levels = order)
 multiClassTotalLevel %<>% melt
@@ -370,7 +536,8 @@ multiClassProportion = cbind(multiClassProportion,multiClassTotalLevel$value)
 names(multiClassProportion) = c('ClassProp','Class','Level')
 
 multiClassProportion %>%
-    ggplot(aes(x = Class, y = ClassProp*100)) + geom_violin(color = "#C4C4C4", fill = "#C4C4C4") +
+    ggplot(aes(x = Class, y = ClassProp*100)) + 
+    geom_violin(color = "#C4C4C4", fill = "#C4C4C4") +
     geom_jitter(alpha = .5,width = 0.1) +
     theme(axis.text.x = element_text(angle = 90,vjust = 0.5,hjust = 1 )) + 
     ylab('% of character level') +
@@ -380,12 +547,30 @@ multiClassProportion %>%
 
 While there is a high amount of variation in the data, some conventional wisdom 
 pops up through the means. Warlock is famous for its dipping potential and a Cleric
-level synergizes nicely with many other class features. I am a proud owner of a Cleric
+level synergizes nicely with many other class features. I am a proud player of a Cleric
 dipped Fighter myself. I would avoid reading too much into this though. The variance
 is too high and sample size is too low to make reliable inferences.
 
+And finally let's see which classes tend to appear in multiclassed builds compared
+to single classed ones
+
+```{r mutliVsSingle}
+
+totalClass = uniqueClasses %>% sapply(function(x){grepl(x,uniqueTable$justClass) %>% sum})
+multiClass = uniqueClasses %>% sapply(function(x){grepl(x,multiClassed$justClass) %>% sum})
+
+multiProps = sort(multiClass/totalClass,decreasing = TRUE)
+
+data.frame(Class = factor(names(multiProps),levels = names(multiProps)),Prop = multiProps*100) %>% 
+    ggplot(aes(x = Class, y= Prop)) + 
+     geom_bar(stat = 'identity') +
+    xlab('') + 
+        geom_text(aes(label = paste(round(Prop),'%')),vjust=-0.25) + 
+     theme(axis.text.x = element_text(angle = 90,vjust = 0.5,hjust = 1 ))  + ylab('% in multiclassed build')
+```
 
 
+## Is power gaming rare?
 
 ```{r multiClassingAndFeats}
 highLevel = uniqueTable %>% filter(levelGroup %>% as.integer %>% {.>1})
@@ -400,17 +585,17 @@ pVal = phyper(multiClassedFeaters,
               sum(is.na(uniqueTable$feats)),
               nrow(multiClassed), lower.tail = FALSE, log.p = FALSE)
 ```
+
+Ok that title is a stretch but we have a format to stick to.
+
 Both multiclassing and picking feats are somewhat advanced character building rules.
 While making the character building process complicated, they can be used to create frighteningly 
 affective combinations (or get stuck waiting till the end of the campaign till their build gets
-everyting they want). Intuitively, it wouldn't be surprising to see that multiclassers are more likely
+everything they want). Intuitively, it wouldn't be surprising to see that multiclassers are more likely
 to get feats to optimize their builds. Indeed, we see that `r round(multiClassedFeaters/nrow(HLmultiClassed)*100)`% 
 of  multiclassed characters above level 3 chose to get a feat as opposed to 
 `r round(singleClassedFeaters/nrow(HLsingleClassed)*100)`% of single classed counterparts.
-A modest yet statistically significant difference.
-
-
-## Are your spells rare?
+A modest yet statistically significant difference (p=`r format.pval(pVal,digits = 2)`).
 
 
 
@@ -422,12 +607,7 @@ It is somewhat reasonable to think that most people would be using them before o
 how many characters were created in each day of the week and below that there's a punch card that 
 shows individual hours. 
 
-Frankly not much to be said here. Most popular days of the week are obviously weekends,
-hours of day are somewhat unreliable as I didn't correct for user timezones. US alone,  which seems to be 
-where most my users are coming from , can
-have 3 hours of difference. I could use IPs and detect locations to fix times but not 
-going into that rabbit hole... How long before the a game a player may want their character 
-sheet is also a great source of variability. I mostly did this because I like punch cards...
+
 
 ```{r gameDay,fig.height=8}
 reliableDateTable = uniqueTable %>% filter(as.Date(date) >  as.Date('2018-04-16'))
@@ -438,27 +618,35 @@ hours = as.POSIXlt( reliableDateTable$date)$hour
 time = data.frame(days = factor(days, levels = c('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')), hours = hours)
 
 
-time %>% group_by(days,hours) %>% summarise(users = n()) %>%
-    ggplot(aes(x = days,y = hours,size = users)) + geom_point() +
+time %>% group_by(days,hours) %>% summarise(Characters = n()) %>%
+    ggplot(aes(x = days,y = hours,size = Characters)) + geom_point() +
     theme(axis.text.x = element_text(angle = 90,vjust = 0.5,hjust = 1 ),
           plot.margin = unit(c(0,0,0,0),'cm')) +
     xlab('') +
     ylab('Hour of Day') -> plot1
 
-time %>% group_by(days) %>% summarise(users = n()) %>% 
-    ggplot(aes(x = days,y = users)) + geom_bar(stat ='identity') + 
+time %>% group_by(days) %>% summarise(Characters = n()) %>% 
+    ggplot(aes(x = days,y = Characters)) + geom_bar(stat ='identity') + 
     theme(axis.text.x = element_blank(),
           axis.ticks.x = element_blank(),
-          plot.margin = unit(c(0,0,0,0),'cm')) +
+          plot.margin = unit(c(0,0,0,0),'cm'))+
     xlab('') + ggtitle('Time of character submission') -> plot2
 
-plot2/plot1 + plot_layout(ncol = 1, heights = c(2,5))
+plot2/plot1 + plot_layout(ncol = 1, heights = c(3,5))
 
 ```
 
+Frankly not much to be said here. Most popular days of the week are obviously weekends and Friday. DnD 
+takes time. Work = less DnD.
+Hours of day are somewhat unreliable as I didn't correct for user time zones. US alone,  which seems to be 
+where most my users are coming from, can
+have 3 hours of difference. I could use IPs and detect locations to fix times but not 
+going into that rabbit hole... How long before the game a player may want their character 
+sheet is also a great source of variability. I mostly did this because I like punch cards...
+
 ## About the data
 
-Unique characters are aquired by grouping the characters that share the same name and class
+Unique characters are acquired by grouping the characters that share the same name and class
 and picking the higher level version. If a multiclassed character shares name with a single
 classed character, I assume they are duplicates if the single classed character is lower level and
 its class matches with one of the classes of the multiclassed character. Any character above
@@ -471,13 +659,7 @@ to let me to keep their character sheets. I don't have reason
 to think that these would be enriching certain character building choices but it's
 something to keep in mind.
 
-I do believe however it is likely to have less test characters
-than DnDBeyond because my tools require a pre-existing character created in a different tool.
-Even if a user wants to just test it out they are likely to have a pre-existing character.
-This is of course my humble opinion (in fact `` characters in my corpus are named "Test").
-
-When I started collecting data I was hoping to release an anonymzed version
 
 ## About this document
 
-[Here]()'s its source code. It's not pretty.
+[Here](https://github.com/oganm/DnDStatistics/blob/master/docs/index.Rmd)'s its source code. It's not pretty.
