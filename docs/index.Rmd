@@ -23,9 +23,122 @@ library(here)
 library(ogbox) # github.com/oganm/ogbox
 knitr::opts_chunk$set(echo = FALSE, fig.align ='center')
 
+races = c(Aarakocra = 'Aarakocra',
+          Aasimar = 'Aasimar',
+          Bugbear= 'Bugbear',
+          Dragonborn = 'Dragonborn',
+          Dwarf = 'Dwarf',
+          Elf = '(?<!Half-)Elf',
+          Firbolg = 'Firbolg',
+          Genasi= 'Genasi',
+          Gith = 'Geth',
+          Gnome = 'Gnome',
+          Goblin='Goblin',
+          Goliath = 'Goliath',
+          'Half-Elf' = '(Half-Elf)|(^Variant)',
+          'Half-Orc' = 'Half-Orc',
+          Halfling = 'Halfling',
+          Hobgoblin = 'Hobgoblin',
+          Human = 'Human',
+          Kenku = 'Kenku',
+          Kobold = 'Kobold',
+          Lizardfolk = 'Lizardfolk',
+          Orc = '(?<!Half-)Orc',
+          'Yaun-Ti' = 'Serpentblood',
+          Tabaxi = 'Tabaxi',
+          Tiefling ='Tiefling|Lineage',
+          Triton = 'Triton',
+          Turtle = 'Turtle|Tortle')
+
+align = list(NG = c('NG',
+                    '"Good"',
+                    "Neuteral Good",
+                    "Neutral Good",
+                    "Nuetral Goodt",
+                    "Neutral/Good",
+                    "Neutral good",
+                    'neutral good'),
+             CG = c('Chaotic Good',
+                    'CG',
+                    'Chacotic Good',
+                    'Chaotic good',
+                    'Good Chaotic',
+                    'chaotic good'),
+             LG = c('Lawful Good',
+                    'LG',
+                    'lawful good',
+                    'Lawful good'),
+             NN = c('Neutral',
+                    'n',
+                    'N',
+                    'True Neutral',
+                    'neutral',
+                    'TN',
+                    'Neutral Neutral',
+                    'true neutral',
+                    'Neutral neutral'),
+             CN = c('Chaotic Neutral',
+                    'CN',
+                    'chaotic neutral',
+                    'Chaotic neutral',
+                    'chaotic nuetral',
+                    'Chaotic Nuetral',
+                    'cn'),
+             LN = c('Lawful Neutral',
+                    'lawful - neutral',
+                    'LN',
+                    'Lawful Neutral (good-ish)',
+                    'lawful neutral'
+             ),
+             NE = c('Neutral Evil'),
+             LE = c('Lawful Evil'),
+             CE = c('CE'))
+
+goodEvil = list(`E` = c('NE','LE','CE'),
+                `N` = c('LN','CN','NN'),
+                `G` = c('NG','LG','CG'))
+
+lawfulChaotic = list(`C` = c('CN','CG','CE'),
+                     `N` = c('NG','NE','NN'),
+                     `L` = c('LG','LE','LN'))
 getUniqueTable = function(charTable){
     uniqueTable = charTable %>% arrange(desc(level)) %>% filter(!duplicated(paste(name,justClass))) %>% 
         filter(!level > 20)
+
+    
+    checkAlignment = function(x,legend){
+        x = names(legend)[findInList(x,legend)]
+        if(length(x) == 0){
+            return('')
+        } else{
+            return(x)
+        }
+    }
+    
+    
+    # check if there's anything left
+    # uniqueTable$alignment  %>% {.[!. %in% unlist(alignment)]} %>% table %>% sort
+    
+    uniqueTable %<>% mutate(processedAlignment = alignment %>% purrr::map_chr(checkAlignment,align),
+                            good = processedAlignment %>% purrr::map_chr(checkAlignment,goodEvil) %>% 
+                                factor(levels = c('E','N','G')),
+                            lawful = processedAlignment %>% 
+                                purrr::map_chr(checkAlignment,lawfulChaotic) %>% factor(levels = c('C','N','L'))) 
+    
+
+    
+    uniqueTable %<>% mutate(processedRace = race %>% sapply(function(x){
+        out = races %>% sapply(function(y){
+            grepl(pattern = y, x,perl = TRUE)
+        }) %>% which %>% names
+        
+        if(length(out) == 0){
+            out = ''
+        }
+        
+        return(out)
+    }))
+    
     # detect non unique characters that multiclassed
     multiClassed = uniqueTable %>% filter(grepl('\\|',justClass))
     singleClassed = uniqueTable %>% filter(!grepl('\\|',justClass))
@@ -61,8 +174,8 @@ getUniqueTable = function(charTable){
 charTable = read_tsv(here("docs/charTable.tsv"))
 # group levels at common feat acquisition points. sorry fighters and rogues
 charTable %<>% mutate(levelGroup = cut(level,
-                                      breaks = c(0,3,7,11,15,18,20),
-                                      labels  = c('1-3','4-7','8-11','12-15','16-18','19-20')))
+                                       breaks = c(0,3,7,11,15,18,20),
+                                       labels  = c('1-3','4-7','8-11','12-15','16-18','19-20')))
 
 # for anyone looking at this and confused by the weird syntax
 # see https://stackoverflow.com/questions/1826519/how-to-assign-from-a-function-which-returns-more-than-one-value
@@ -75,10 +188,29 @@ list[uniqueTable,singleClassed,multiClassed] = getUniqueTable(charTable)
 
 barPalette = c('#7DD4A6','#C15BC5','#D65242','#415455',
                '#D2A75C','#8FD25B','#D15B86','#A5B5BE','#727EC6',
-               '#567441','#754334','#5E3A60','#77B0D0')
+               '#567441','#754334','#5E3A60','#77B0D0',"#CCEBC5",
+               "#D9D9D9","#FCCDE5")
 ```
 
+Table of Contents
+=================
+
+   * [Is your D&amp;D character rare? II: Off-brand edition](#is-your-dd-character-rare-ii-off-brand-edition)
+      * [Introduction](#introduction)
+      * [Is Your D&amp;D Character Rare? II](#is-your-dd-character-rare-ii)
+      * [Is your character archetype rare?](#is-your-character-archetype-rare)
+      * [Is your alignment rare?](#is-your-alignment-rare)
+      * [Are your feat choices rare?](#are-your-feat-choices-rare)
+      * [Is your multiclass combination rare?](#is-your-multiclass-combination-rare)
+      * [Is power gaming rare?](#is-power-gaming-rare)
+      * [Is your game day rare?](#is-your-game-day-rare)
+      * [About the data](#about-the-data)
+      * [About this document](#about-this-document)
+
+
 # Is your D&D character rare? II: Off-brand edition
+
+*Ogan Mancarci*
 
 ## Introduction
 
@@ -87,18 +219,18 @@ About a year ago FiveThirtyEight published a short article called
 It was a product of a deal between Curse and FiveThirtyEight which meant the data
 was not available to anyone else. I was a little jealous that I couldn't play with the data and disappointed that they only counted class race combinations and called it a day.
 
-Shortly after, I released a few add-ons ([1](https://oganm.github.io/printSheetApp/),[2](https://oganm.github.io/5eInteractiveSheet/)) for a [popular mobile application](https://play.google.com/store/apps/details?id=com.wgkammerer.testgui.basiccharactersheet.app&hl=en_CA) which allowed me to collect my users' character sheets. 
+Shortly after, I released a few tools ([1](https://oganm.github.io/printSheetApp/),[2](https://oganm.github.io/5eInteractiveSheet/)) for a popular mobile application ([3](https://play.google.com/store/apps/details?id=com.wgkammerer.testgui.basiccharactersheet.app&hl=en_CA)) which allowed me to collect my users' character data. 
 
 After 3.5 months of data collection
 I have a whopping... `r  nrow(uniqueTable)` unique characters in my database that I can play with. Well... I'm not
-as popular as DnDBeyond but I don't see anyone else waving around thousands of character sheets for us to 
+as popular as DnDBeyond but I don't see anyone else waving around hundreds of character sheets for us to 
 data mine, so it'll have to do.
 
 ## Is Your D&D Character Rare? II
 
 To start with let's redo the table from FiveThirtyEight. I am not going to pretend
 like I have many thousands of samples so instead of per 100,000 this shows class and race combinations per 100
-characters. In FiveThirtyEight's table, characters with multiple classes count once for each class. Here I divided multiclassed characters based on the proportion of their class levels. For instance, a character who is a Fighter 5/Rogue 15 will add 0.75 to the rogue count and 0.25 to the fighter count. It also includes all races. Homebrew and UA classes are removed.
+characters. In FiveThirtyEight's table, characters with multiple classes count once for each class. Here I divided multiclassed characters based on the proportion of their class levels. For instance, a character who is a Fighter 5/Rogue 15 will add 0.75 to the rogue count and 0.25 to the fighter count. Homebrew and UA classes are removed.
 
 ```{r fiveThirtyEightCopy,fig.width=9}
 # the way races are encoded in the app is a little silly. sub-races are 
@@ -109,35 +241,6 @@ characters. In FiveThirtyEight's table, characters with multiple classes count o
 # it'll only say human
 # here, I define regex that matches races.
 # kind of an overkill as only few races actually required special care
-races  = uniqueTable$race %>% unique
-races = c(Aarakocra = 'Aarakocra',
-          Aasimar = 'Aasimar',
-          Bugbear= 'Bugbear',
-          Dragonborn = 'Dragonborn',
-          Dwarf = 'Dwarf',
-          Elf = '(?<!Half-)Elf',
-          Firbolg = 'Firbolg',
-          Genasi= 'Genasi',
-          Gith = 'Geth',
-          Gnome = 'Gnome',
-          Goblin='Goblin',
-          Goliath = 'Goliath',
-          'Half-Elf' = '(Half-Elf)|(Variant)',
-          'Half-Orc' = 'Half-Orc',
-          Halfling = 'Halfling',
-          Hobgoblin = 'Hobgoblin',
-          Human = 'Human',
-          Kenku = 'Kenku',
-          Kobold = 'Kobold',
-          Lizardfolk = 'Lizardfolk',
-          Orc = '(?<!Half-)Orc',
-          'Yaun-Ti' = 'Serpentblood',
-          Tabaxi = 'Tabaxi',
-          Tiefling ='Tiefling|Lineage',
-          Triton = 'Triton',
-          Turtle = 'Turtle|Tortle')
-
-
 
 classes = uniqueTable$justClass %>% str_split('\\|') %>% unlist %>% unique
 coOccurenceMatrix = matrix(0 , nrow=length(races),ncol = length(classes))
@@ -145,7 +248,7 @@ colnames(coOccurenceMatrix) = classes
 rownames(coOccurenceMatrix) = names(races)
 for (i in seq_along(races)){
     for (j in seq_along(classes)){
-        ((grepl(races[i],uniqueTable$race,perl= TRUE)) * {
+        ((uniqueTable$processedRace==names(races)[i]) * {
             classLevel  =str_extract(uniqueTable$class,glue('(?<={classes[j]} )[0-9]+')) %>% {.[is.na(.)] = 0;.} %>% as.integer()
             classLevel/uniqueTable$level
             }) %>% sum -> coOcc
@@ -207,7 +310,7 @@ corFrame = data.frame(DnDBeyond = fiveThirtyEight$value/1000, oganm = coOccurenc
 
 ```
 
-Despite the methodological differences, these results seem to correlate well (Spearman's ρ=`r round(cor(corFrame$DnDBeyond,corFrame$oganm,method = 'spearman'),2)`) with DnDBeyond data even though we seem to disagree on what most popular classes and races are. Graph below shows the % occurrence of a class/race combination in FiveThityEight data and my data.
+Despite the methodological differences, these results seem to correlate well with DnDBeyond data (Spearman's ρ=`r round(cor(corFrame$DnDBeyond,corFrame$oganm,method = 'spearman'),2)`) even though we seem to disagree on the exact order of popularity. Graph below shows the % occurrence of a class/race combination in DnDBeyond data as presented in FiveThirtyEight and my data.
 
 
 ```{r fiveThirtyEightCorr,message=FALSE,fig.height=3.5,fig.width=3.5}
@@ -230,9 +333,9 @@ div(ply,align = 'center')
 This is a little hard to visualize in a single plot. Alas we are short on space so you're going
 to have to mouse over to see the details. Each colored section shows a character archetype's proportion
 to the rest of the archetypes for the class. They are ordered from bottom to top in order of 
-frequency so the brown always show the most popular archetype and it goes downhill (but upwards in the plot) from there.
+frequency, so the brown always show the most popular archetype and it goes downhill (but upwards in the plot) from there.
 
-```{r}
+```{r archetypeGraph}
 # uniqueTable$justClass
 classes = uniqueTable$justClass %>% str_split('\\|') %>% unlist
 archetypes = uniqueTable$subclass %>% str_split('\\|') %>% unlist
@@ -266,7 +369,204 @@ div(ply,align='center')
 
 ```
 
-I will never understand what people find in Champion but each to their own... 
+## Is your alignment rare?
+
+Analysis of alignment in this dataset is difficult because unlike most other fields, 
+it is not mandatory. It also isn't something you are likely to forget about your
+character so there isn't much incentive to fill it in.
+Only `r round(sum(!is.na(uniqueTable$alignment))/nrow(uniqueTable)*100)`% of
+characters actually filled this field. I know I only filled it myself when testing
+my applications. It is entirely possible for the users' choice to fill this box
+to introduce a bias so take these results with a grain of salt
+
+Also, since its a free text field, some manual
+processing is required to make the most of this information 
+(looking at you fellows with the "Awesome" and "Super Good" alignments). But that is
+still `r sum(!is.na(uniqueTable$alignment))` characters so there you go:
+
+The plot below shows character counts for each alignment.
+
+```{r alignment, fig.height=2,fig.width=2,fig.align='center'}
+
+alignmentTable = uniqueTable %>% filter(processedAlignment != '')
+
+
+
+
+alignmentCounts = alignmentTable %>% group_by(good,lawful) %>% 
+    summarize(Count = n())
+
+
+alignmentCounts %>% ggplot(aes(x = good,
+                               y = lawful,
+                               fill = Count,
+                               label = Count)) + geom_tile() + 
+    scale_fill_continuous(low = 'white',high = '#46A948',na.value = 'white') + 
+    geom_text() + 
+    xlab('Good/Evil') +
+    ylab('Chaotic/Lawful') +
+    theme(legend.position = 'none')->p
+p
+```
+
+In general, lawful characters seem to be out of style these days. Let's see how are 
+the tendencies for individual classes. Below graph shows a mean alignment for 
+each class. Multiclassed characters' contribution
+is calculated as before. You can mouse over to see sample size and mean values.
+The numerical values are distributed from 1 to 3. 1 is Chaotic/Evil, 3 is Lawful/Good on 
+the corresponding scales.
+
+```{r classAlignment}
+uniqueClasses = alignmentTable$justClass %>% str_split('\\|') %>% unlist %>% table %>% {.[.>2]} %>% names
+
+classGood = uniqueClasses %>% sapply(function(x){
+    classAlignment = alignmentTable %>% filter(grepl(x,justClass))
+    good =classAlignment %$% good
+    classProportion = as.integer(stringr::str_extract(classAlignment$class,glue('(?<={x} )[0-9]+')))/classAlignment$level
+    weighted.mean(good %>% as.integer,classProportion)
+})
+
+classLawful = uniqueClasses %>% sapply(function(x){
+    classAlignment = alignmentTable %>% filter(grepl(x,justClass))
+    lawful =classAlignment %$% lawful
+    classProportion = as.integer(stringr::str_extract(classAlignment$class,glue('(?<={x} )[0-9]+')))/classAlignment$level
+    weighted.mean(lawful %>% as.integer,classProportion)
+})
+
+classN = uniqueClasses %>% sapply(function(x){
+    classAlignment = alignmentTable %>% filter(grepl(x,justClass))
+    classProportion = sum(as.integer(stringr::str_extract(classAlignment$class,glue('(?<={x} )[0-9]+')))/classAlignment$level)
+    return(classProportion)
+})
+
+
+classAlignments = data.frame(`Good/Evil` = classGood,`Chaotic/Lawful` = classLawful,
+                             Class = uniqueClasses,N = classN,
+                             check.names = FALSE) 
+
+classAlignments %>% ggplot(aes(x = `Good/Evil`,y = `Chaotic/Lawful`, color = Class,hede = N)) + geom_point() +  
+    scale_x_continuous(breaks = c(1,2,3),
+                       labels = c('E','N','G'),limits = c(1,3)) + 
+    scale_y_continuous(breaks = c(1,2,3),
+                       labels = c('C','N','L'), limits = c(1,3))+
+    xlab('Good/Evil') +
+    ylab('Chaotic/Lawful') + 
+    scale_color_manual(values = barPalette) ->p
+
+ply = plotly::ggplotly(p) %>%  layout(xaxis=list(fixedrange=TRUE)) %>%
+    config(displayModeBar = F) %>% 
+    layout(yaxis=list(fixedrange=TRUE))
+ply$width = 400
+ply$height = 300
+# rmarkdown seems to ignore alignment set using plotly
+div(ply,align = 'center')
+
+```
+
+Darn! Most of the space in this graph is wasted. Even good old paladin has a 
+chaotic tendency. Seems like 5e really helped players to break tradition. Meanwhile, Warlock is predictably the evilest class.
+
+We can also
+do the same to backgrounds. Since they probably explain more than a character's 
+back story than a class does we might get more information.
+
+
+```{r backGroundAlignment}
+
+getMeanAlignments = function(table, property, minRepresentation = 3){
+    uniqueThing = table[[property]] %>% table %>% {.[.>minRepresentation]} %>% names
+    goodThing = uniqueThing %>% sapply(function(x){
+        thingAlignment = table[table[[property]] %in%  x,]
+        good =thingAlignment %$% good
+        mean(good %>% as.integer)
+    })
+    lawfulThing = uniqueThing %>%  sapply(function(x){
+        thingAlignment = table[table[[property]] %in%  x,]
+        lawful =thingAlignment %$% lawful
+        mean(lawful %>% as.integer)
+    })
+    
+    thingCount = uniqueThing %>% sapply(function(x){
+        table[table[[property]] == x,] %>% nrow
+    })
+    
+    thingAligment = data.frame(`Good/Evil` = goodThing,`Chaotic/Lawful` = lawfulThing,
+                             thing = uniqueThing,N = thingCount,
+                             check.names = FALSE) 
+    names(thingAligment)[3] = property
+    return(thingAligment)
+}
+
+backgroundAlignment = getMeanAlignments(alignmentTable,property = 'background')
+
+names(backgroundAlignment)[3] = 'Background'
+
+backgroundAlignment %>% ggplot(aes(x = `Good/Evil`,y = `Chaotic/Lawful`, color = Background,hede = N)) + geom_point() +  
+    scale_x_continuous(breaks = c(1,2,3),
+                       labels = c('E','N','G'),limits = c(1,3)) + 
+    scale_y_continuous(breaks = c(1,2,3),
+                       labels = c('C','N','L'), limits = c(1,3))+
+    xlab('Good/Evil') +
+    ylab('Chaotic/Lawful') ->p# + 
+    # scale_color_manual(values = barPalette) 
+
+ply = plotly::ggplotly(p) %>%  layout(xaxis=list(fixedrange=TRUE)) %>%
+    config(displayModeBar = F) %>% 
+    layout(yaxis=list(fixedrange=TRUE))
+ply$width = 550
+ply$height = 300
+# rmarkdown seems to ignore alignment set using plotly
+div(ply,align = 'center')
+
+```
+
+This looks better. On extremes we have Knights who tend to be lawful, Folk Heroes
+and Hermits on the good, Bounty Hunters, Charlatans, Urchins on chaotic and Criminals
+as the only background left of Neutral on the Good/Evil line.
+
+Obviously next logical step is racial profiling.
+
+```{r raceAlignment}
+
+raceAlignment = getMeanAlignments(alignmentTable,property = 'processedRace')
+
+
+names(raceAlignment)[3] = 'Race'
+
+raceAlignment %<>% filter(Race !='')
+
+
+raceAlignment %>% ggplot(aes(x = `Good/Evil`,y = `Chaotic/Lawful`, color = Race,hede = N)) +
+    geom_point() +  
+    scale_x_continuous(breaks = c(1,2,3),
+                       labels = c('E','N','G'),limits = c(1,3)) + 
+    scale_y_continuous(breaks = c(1,2,3),
+                       labels = c('C','N','L'), limits = c(1,3))+
+    xlab('Good/Evil') +
+    ylab('Chaotic/Lawful') +
+    scale_color_manual(values = barPalette) ->p# + 
+    # scale_color_manual(values = barPalette) 
+
+ply = plotly::ggplotly(p) %>%  layout(xaxis=list(fixedrange=TRUE)) %>%
+    config(displayModeBar = F) %>% 
+    layout(yaxis=list(fixedrange=TRUE))
+ply$width = 500
+ply$height = 300
+# rmarkdown seems to ignore alignment set using plotly
+div(ply,align = 'center')
+
+```
+
+Take that racism! Half-orcs tend to be nicer characters than humans. Alas thieflings
+are as close to Chaotic Stupid as they are stereotyped as.
+
+<!-- ## Are your skills rare? -->
+
+<!-- Skills are this is where I get bored -->
+
+<!-- ```{r skills} -->
+<!-- uniqueTable$skills %>% str_split('\\|') %>% unlist %>% table %>% sort -->
+<!-- ``` -->
 
 ## Are your feat choices rare?
 
@@ -391,7 +691,7 @@ div(ply,align='center')
 
 ```
 
-It is surprising that Elven Accuracy, a feat that is added in a supplement and resrticted to elves, is as 
+It is surprising that Elven Accuracy, a feat that is added in a supplement and restricted to elves, is as 
 popular as many core book feats that are known to be highly effective. `r uniqueTable %>% filter(grepl('elf|Variant',race,ignore.case = TRUE)) %$% feats %>% {grepl('Elven A',.)} %>% {sum(.)/length(.)*100} %>% round`% of all elves and half-elves have this feat. Its appeal to both
 ranged weapon attackers and casters seems to make it a good choice for elves from many walks
 of life. Another interesting bit 
@@ -443,16 +743,16 @@ plot(network,
      asp = 1)
 ```
 
-Before I say anything I have to declare the connections in this graph aren't particularly
+Before I say anything, I have to declare the connections in this graph aren't particularly
 strong. There are
 too many feats and I have too few characters for high number of feats to appear together.
 The strongest link in this graph is based on `r max(adjMatrix)+1` observations.
 
-Yet, as it stands, the connections seem quite intuitive so we are probably not staring at noise here.
-Robustnessof elven accuracy is visible in this graph as it is both selected by 
+Yet, as it stands, the connections seem quite intuitive, so we are probably not staring at noise here.
+Robustness of elven accuracy is visible in this graph as it is both selected by 
 characters trying to optimize their ranged and spell attacks.
 Crossbow Expert-Sharpshooter is known to be an effective combination to boost damage.
-Sentinel-Polearm Master is anazing for battlefield control.
+Sentinel-Polearm Master is amazing for battlefield control.
 
 ## Is your multiclass combination rare?
 
@@ -616,7 +916,7 @@ pVal = phyper(multiClassedFeaters,
               nrow(multiClassed), lower.tail = FALSE, log.p = FALSE)
 ```
 
-Ok that title is a stretch but we have a format to stick to.
+Ok that title is a stretch, but we have a format to stick to.
 
 Both multiclassing and picking feats are somewhat advanced character building rules.
 While making the character building process complicated, they can be used to create frighteningly 
@@ -688,7 +988,7 @@ Any character above level 20 (there were `r sum(charTable$level > 20)`) were rem
 `r sum(grepl('Revised',keepRevised$class,ignore.case = TRUE))` Revised Rangers were merged back into
 the ranger class. 
 
-Most percentages are rounded to the nearest integer
+Most percentages are rounded to the nearest integer.
 
 As all data, this data comes with caveats. It is a subset of all DnD players who are using a
 particular mobile application who also know about and use my applications and consented
@@ -696,6 +996,33 @@ to let me to keep their character sheets. I don't have reason
 to think that these would be enriching certain character building choices but it's
 something to keep in mind.
 
+
+```{r statistics}
+fighterCount = grepl('Fighter',uniqueTable$class) %>% sum
+battleMasterCount = uniqueTable$subclass %>% str_split('\\|') %>% unlist %>% {. %in% 'Battle Master'} %>% sum
+battleMasterPercent = battleMasterCount/fighterCount
+bmConfInf = sqrt(battleMasterPercent*(1-battleMasterPercent)/fighterCount) * 1.96
+
+
+championCount = uniqueTable$subclass %>% str_split('\\|') %>% unlist %>% {. %in% 'Champion'} %>% sum
+championPercent = championCount/fighterCount
+cmConfInf= sqrt(championPercent*(1-championPercent)/fighterCount) * 1.96
+
+
+```
+In most parts of this document no information is provided about whether or not the differences
+are actually statistacilly significant. Sorry about that. Didn't want to fill this place with
+too much math. For instance we can see that we have
+`r battleMasterCount` battle masters
+vs `r championCount`. This is not a statistically significant difference based on our sample size
+so we cannot state with high confidence that the battle master is the more popular choice. 
+
+If you are interested in significance of any of these measures, you can take a peak at this [article](https://en.wikipedia.org/wiki/Margin_of_error) on wikipedia where formulas needed are explained.
+For some of these at least you should be able to get the information you need from the article.
+
+If you have any questions, you can [mail me](mailto:ogan.mancarci@gmail.com). Mention "dndstats"
+somewhere in the
+text so you won't be sent to spam.
 
 ## About this document
 
