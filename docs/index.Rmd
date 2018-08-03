@@ -206,11 +206,14 @@ Table of Contents
       * [Is your game day rare?](#is-your-game-day-rare)
       * [About the data](#about-the-data)
       * [About this document](#about-this-document)
+      * [Changelog](#changelog)
 
 
 # Is your D&D character rare? II: Off-brand edition
 
-*Ogan Mancarci*
+*Ogan Mancarci, 28 July 2018*
+
+*Edited: 2 August 2018 (see [changlelog](#changelog))*
 
 ## Introduction
 
@@ -557,7 +560,7 @@ div(ply,align = 'center')
 
 ```
 
-Take that racism! Half-orcs tend to be nicer characters than humans. Alas thieflings
+Take that racism! Half-orcs tend to be nicer characters than humans (Disclaimer: Like most, if not all of the one to one comparisons you can make here, difference between Half-Orc and Human "goodness" is not statistically significant, p = `r alignmentTable %>% filter(processedRace %in% c('Human','Half-Orc')) %>% mutate(good = as.integer(good))  %>% lm(good~processedRace,data=.) %>% summary %$% coefficients %>% {.[2,4]} %>% round(digits = 2)`). Alas, Tieflings
 are as close to Chaotic Stupid as they are stereotyped as.
 
 <!-- ## Are your skills rare? -->
@@ -721,7 +724,8 @@ for (i in seq_along(uniqueFeats)){
 rownames(adjMatrix) = uniqueFeats
 colnames(adjMatrix) = uniqueFeats
 
-adjMatrix = adjMatrix-1
+threshold = 1
+adjMatrix = adjMatrix-threshold
 adjMatrix[adjMatrix < 1] = 0
 zeroFilter = adjMatrix %>% apply(1,sum) %>% {.!=0}
 adjMatrix = adjMatrix[zeroFilter,zeroFilter]
@@ -734,7 +738,7 @@ maxWeight = E(network)$weight %>% max
 maxStrength = strength(network) %>% max
 par(mar=c(0,0,1,0))
 
-set.seed(4)
+set.seed(9)
 plot(network,
      vertex.frame.color="white",
      vertex.label.color="black",
@@ -1014,7 +1018,7 @@ In most parts of this document no information is provided about whether or not t
 are actually statistacilly significant. Sorry about that. Didn't want to fill this place with
 too much math. For instance we can see that we have
 `r battleMasterCount` battle masters
-vs `r championCount`. This is not a statistically significant difference based on our sample size
+vs `r championCount` champions. This is not a statistically significant difference based on our sample size
 so we cannot state with high confidence that the battle master is the more popular choice. 
 
 If you are interested in significance of any of these measures, you can take a peak at this [article](https://en.wikipedia.org/wiki/Margin_of_error) on wikipedia where formulas needed are explained.
@@ -1026,4 +1030,32 @@ text so you won't be sent to spam.
 
 ## About this document
 
-[Here](https://github.com/oganm/DnDStatistics/blob/master/docs/index.Rmd)'s its source code. It's not pretty.
+The text of this document is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) license
+
+[Here](https://github.com/oganm/DnDStatistics/blob/master/docs/index.Rmd)'s its source code. It's not pretty. 
+
+The code blocks within the source code is licensed under [MIT license](https://opensource.org/licenses/MIT).
+
+## Changelog
+
+**28 July 2018:** 
+
+* Initial release
+
+**2 August 2018:** 
+
+* License information added. 
+* A forgotten word added.
+* Data from 40 additional characters incorporated. No significant changes observed.
+* Claim about increased decency of Half-Orcs softened
+* Changelog added
+
+<!-- # Supplementary figures -->
+
+<!-- I have some more free time now so I thought I could look at a few things that I -->
+<!-- missed the first time -->
+
+<!-- ## Supplementary info - Are your skills rare -->
+
+<!-- ## Supplementary info - Are your spells rare -->
+
