@@ -20,124 +20,16 @@ library(patchwork)
 library(plotly)
 library(shiny)
 library(here)
+library(knitr)
+library(purrr)
+library(kableExtra)
 library(ogbox) # github.com/oganm/ogbox
 knitr::opts_chunk$set(echo = FALSE, fig.align ='center')
 
-races = c(Aarakocra = 'Aarakocra',
-          Aasimar = 'Aasimar',
-          Bugbear= 'Bugbear',
-          Dragonborn = 'Dragonborn',
-          Dwarf = 'Dwarf',
-          Elf = '(?<!Half-)Elf',
-          Firbolg = 'Firbolg',
-          Genasi= 'Genasi',
-          Gith = 'Geth',
-          Gnome = 'Gnome',
-          Goblin='Goblin',
-          Goliath = 'Goliath',
-          'Half-Elf' = '(Half-Elf)|(^Variant)',
-          'Half-Orc' = 'Half-Orc',
-          Halfling = 'Halfling',
-          Hobgoblin = 'Hobgoblin',
-          Human = 'Human',
-          Kenku = 'Kenku',
-          Kobold = 'Kobold',
-          Lizardfolk = 'Lizardfolk',
-          Orc = '(?<!Half-)Orc',
-          'Yaun-Ti' = 'Serpentblood',
-          Tabaxi = 'Tabaxi',
-          Tiefling ='Tiefling|Lineage',
-          Triton = 'Triton',
-          Turtle = 'Turtle|Tortle')
 
-align = list(NG = c('NG',
-                    '"Good"',
-                    "Neuteral Good",
-                    "Neutral Good",
-                    "Nuetral Goodt",
-                    "Neutral/Good",
-                    "Neutral good",
-                    'neutral good'),
-             CG = c('Chaotic Good',
-                    'CG',
-                    'Chacotic Good',
-                    'Chaotic good',
-                    'Good Chaotic',
-                    'chaotic good'),
-             LG = c('Lawful Good',
-                    'LG',
-                    'lawful good',
-                    'Lawful good'),
-             NN = c('Neutral',
-                    'n',
-                    'N',
-                    'True Neutral',
-                    'neutral',
-                    'TN',
-                    'Neutral Neutral',
-                    'true neutral',
-                    'Neutral neutral'),
-             CN = c('Chaotic Neutral',
-                    'CN',
-                    'chaotic neutral',
-                    'Chaotic neutral',
-                    'chaotic nuetral',
-                    'Chaotic Nuetral',
-                    'cn'),
-             LN = c('Lawful Neutral',
-                    'lawful - neutral',
-                    'LN',
-                    'Lawful Neutral (good-ish)',
-                    'lawful neutral'
-             ),
-             NE = c('Neutral Evil'),
-             LE = c('Lawful Evil'),
-             CE = c('CE'))
-
-goodEvil = list(`E` = c('NE','LE','CE'),
-                `N` = c('LN','CN','NN'),
-                `G` = c('NG','LG','CG'))
-
-lawfulChaotic = list(`C` = c('CN','CG','CE'),
-                     `N` = c('NG','NE','NN'),
-                     `L` = c('LG','LE','LN'))
 getUniqueTable = function(charTable){
     uniqueTable = charTable %>% arrange(desc(level)) %>% filter(!duplicated(paste(name,justClass))) %>% 
         filter(!level > 20)
-
-    
-    checkAlignment = function(x,legend){
-        x = names(legend)[findInList(x,legend)]
-        if(length(x) == 0){
-            return('')
-        } else{
-            return(x)
-        }
-    }
-    
-    
-    # check if there's anything left
-    # uniqueTable$alignment  %>% {.[!. %in% unlist(alignment)]} %>% table %>% sort
-    
-    uniqueTable %<>% mutate(processedAlignment = alignment %>% purrr::map_chr(checkAlignment,align),
-                            good = processedAlignment %>% purrr::map_chr(checkAlignment,goodEvil) %>% 
-                                factor(levels = c('E','N','G')),
-                            lawful = processedAlignment %>% 
-                                purrr::map_chr(checkAlignment,lawfulChaotic) %>% factor(levels = c('C','N','L'))) 
-    
-
-    
-    uniqueTable %<>% mutate(processedRace = race %>% sapply(function(x){
-        out = races %>% sapply(function(y){
-            grepl(pattern = y, x,perl = TRUE)
-        }) %>% which %>% names
-        
-        if(length(out) == 0){
-            out = ''
-        }
-        
-        return(out)
-    }))
     
     # detect non unique characters that multiclassed
     multiClassed = uniqueTable %>% filter(grepl('\\|',justClass))
@@ -171,7 +63,10 @@ getUniqueTable = function(charTable){
 
 # load table and get unique characters
 
-charTable = read_tsv(here("docs/charTable.tsv"))
+charTable = read_tsv(here("docs/charTable.tsv"),na = 'NA')
+charTable %<>% mutate(good = factor(good,levels = c('E','N','G')),
+                      lawful =  factor(lawful, levels = c('C','N','L')))
+
 # group levels at common feat acquisition points. sorry fighters and rogues
 charTable %<>% mutate(levelGroup = cut(level,
                                        breaks = c(0,3,7,11,15,18,20),
@@ -184,6 +79,8 @@ charTable$justClass %<>%  gsub(pattern = 'Revised ', replacement = '',x = .)
 charTable$class %<>%  gsub(pattern = 'Revised ', replacement = '',x = .)
 
 list[uniqueTable,singleClassed,multiClassed] = getUniqueTable(charTable)
+
+write_tsv(uniqueTable,path = here('docs/uniqueTable.tsv'))
 
 
 barPalette = c('#7DD4A6','#C15BC5','#D65242','#415455',
@@ -203,8 +100,10 @@ Table of Contents
       * [Are your feat choices rare?](#are-your-feat-choices-rare)
       * [Is your multiclass combination rare?](#is-your-multiclass-combination-rare)
       * [Is power gaming rare?](#is-power-gaming-rare)
+      * [Are your spells rare?](#are-your-spells-rare)
       * [Is your game day rare?](#is-your-game-day-rare)
       * [About the data](#about-the-data)
+      * [Data access](#data-access)
       * [About this document](#about-this-document)
       * [Changelog](#changelog)
 
@@ -213,7 +112,7 @@ Table of Contents
 
 *Ogan Mancarci, 28 July 2018*
 
-*Edited: 2 August 2018 (see [changlelog](#changelog))*
+*Edited: 18 August 2018 (see [changlelog](#changelog))*
 
 ## Introduction
 
@@ -236,23 +135,17 @@ like I have many thousands of samples so instead of per 100,000 this shows class
 characters. In FiveThirtyEight's table, characters with multiple classes count once for each class. Here I divided multiclassed characters based on the proportion of their class levels. For instance, a character who is a Fighter 5/Rogue 15 will add 0.75 to the rogue count and 0.25 to the fighter count. Homebrew and UA classes are removed.
 
 ```{r fiveThirtyEightCopy,fig.width=9}
-# the way races are encoded in the app is a little silly. sub-races are 
-# not recorded separately. essentially race information is lost other
-# than a text field after it's effects are applied during creation.
-# The text field is also not too consistent. For instance if you are a 
-# variant it'll simply say "Variant" but if you are a variant human
-# it'll only say human
-# here, I define regex that matches races.
-# kind of an overkill as only few races actually required special care
 
-classes = uniqueTable$justClass %>% str_split('\\|') %>% unlist %>% unique
-coOccurenceMatrix = matrix(0 , nrow=length(races),ncol = length(classes))
-colnames(coOccurenceMatrix) = classes
-rownames(coOccurenceMatrix) = names(races)
+# classes = uniqueTable$justClass %>% str_split('\\|') %>% unlist %>% unique
+legitClasses = c("Warlock", "Monk", "Wizard", "Barbarian", "Sorcerer", "Paladin", "Fighter", "Druid", "Ranger", "Rogue","Cleric","Bard")
+races = uniqueTable$processedRace %>% unique %>% {.[.!='']}
+coOccurenceMatrix = matrix(0 , nrow=length(races),ncol = length(legitClasses))
+colnames(coOccurenceMatrix) = legitClasses
+rownames(coOccurenceMatrix) = races
 for (i in seq_along(races)){
-    for (j in seq_along(classes)){
-        ((uniqueTable$processedRace==names(races)[i]) * {
-            classLevel  =str_extract(uniqueTable$class,glue('(?<={classes[j]} )[0-9]+')) %>% {.[is.na(.)] = 0;.} %>% as.integer()
+    for (j in seq_along(legitClasses)){
+        ((uniqueTable$processedRace==races[i]) * {
+            classLevel  =str_extract(uniqueTable$class,glue('(?<={legitClasses[j]} )[0-9]+')) %>% {.[is.na(.)] = 0;.} %>% as.integer()
             classLevel/uniqueTable$level
             }) %>% sum -> coOcc
         coOccurenceMatrix[i,j] = coOcc
@@ -354,7 +247,8 @@ archeFrame %<>% group_by(classes,archetypes) %>% summarize(count = n()) %>%
     group_by(classes) %>% 
     mutate(ratio = count/sum(count)*100) %>%
     mutate(classArcheID = as.integer(archetypes) - max(as.integer(archetypes)) +1) %>% ungroup() %>% mutate(classArcheID = as.factor(classArcheID)) %>% 
-    mutate(`%` = round(ratio))
+    mutate(`%` = round(ratio)) %>% 
+    filter(classes %in% legitClasses)
 
 archeFrame %>% 
     ggplot(aes(x = classes,y = ratio,fill = classArcheID,
@@ -420,23 +314,22 @@ The numerical values are distributed from 1 to 3. 1 is Chaotic/Evil, 3 is Lawful
 the corresponding scales.
 
 ```{r classAlignment}
-uniqueClasses = alignmentTable$justClass %>% str_split('\\|') %>% unlist %>% table %>% {.[.>2]} %>% names
 
-classGood = uniqueClasses %>% sapply(function(x){
+classGood = legitClasses %>% sapply(function(x){
     classAlignment = alignmentTable %>% filter(grepl(x,justClass))
     good =classAlignment %$% good
     classProportion = as.integer(stringr::str_extract(classAlignment$class,glue('(?<={x} )[0-9]+')))/classAlignment$level
     weighted.mean(good %>% as.integer,classProportion)
 })
 
-classLawful = uniqueClasses %>% sapply(function(x){
+classLawful = legitClasses %>% sapply(function(x){
     classAlignment = alignmentTable %>% filter(grepl(x,justClass))
     lawful =classAlignment %$% lawful
     classProportion = as.integer(stringr::str_extract(classAlignment$class,glue('(?<={x} )[0-9]+')))/classAlignment$level
     weighted.mean(lawful %>% as.integer,classProportion)
 })
 
-classN = uniqueClasses %>% sapply(function(x){
+classN = legitClasses %>% sapply(function(x){
     classAlignment = alignmentTable %>% filter(grepl(x,justClass))
     classProportion = sum(as.integer(stringr::str_extract(classAlignment$class,glue('(?<={x} )[0-9]+')))/classAlignment$level)
     return(classProportion)
@@ -444,7 +337,7 @@ classN = uniqueClasses %>% sapply(function(x){
 
 
 classAlignments = data.frame(`Good/Evil` = classGood,`Chaotic/Lawful` = classLawful,
-                             Class = uniqueClasses,N = classN,
+                             Class = legitClasses,N = classN,
                              check.names = FALSE) 
 
 classAlignments %>% ggplot(aes(x = `Good/Evil`,y = `Chaotic/Lawful`, color = Class,hede = N)) + geom_point() +  
@@ -577,7 +470,7 @@ Jeremy Crawford once [tweeted](https://twitter.com/jeremyecrawford/status/969020
 
 > Another piece of D&D data: a majority of D&D characters don't use feats. Many players love the customization possible with feats, but a larger group of players is happy to make characters without feats. Feats are, therefore, not a driving force behind many players' choices. 
 
-We can see whether or not our data agrees. On a surface look `r round(sum(!is.na(uniqueTable$feats))/nrow(uniqueTable)*100)`% of all characters
+We can see whether or not our data agrees. On a surface look `r round(sum(uniqueTable$feats!='')/nrow(uniqueTable)*100)`% of all characters
 have at least one feat. However, this is partially caused by  the fact that a significant portion (`r round(sum(uniqueTable$level %in%  c(1,2,3))/nrow(uniqueTable)*100)`%) 
 of our characters are between levels 1-3 and unless they are variant humans, they cannot have feats. We can see that by higher levels, feat adoption rates increase significantly, suggesting that once given the opportunity, players are likely to pick a feat.
 
@@ -591,7 +484,7 @@ uniqueTable %>%
     arrange(levelGroup) %>% 
     mutate(levelGroup2 = factor(levelGroup2, levels = unique(levelGroup2))) %>% 
     group_by(levelGroup2) %>% 
-    summarise(featPopularity = sum(!is.na(feats))/n()*100) %>%
+    summarise(featPopularity = sum(feats!='')/n()*100) %>%
     ggplot(aes(x = levelGroup2,y = featPopularity)) +
     geom_text(aes(label = paste(round(featPopularity),'%')),vjust=-0.25) + 
     geom_bar(stat = 'identity') +
@@ -600,20 +493,20 @@ uniqueTable %>%
 
 ```
 
-It can be postulated players spend most of their time between levels 4-15. `r uniqueTable %>% filter(as.integer(levelGroup) %in% c(2,3,4)) %>% {round(sum(!is.na(.$feats))/nrow(.)*100)}`% of all characters
+It can be postulated players spend most of their time between levels 4-15. `r uniqueTable %>% filter(as.integer(levelGroup) %in% c(2,3,4)) %>% {round(sum(.$feats!='')/nrow(.)*100)}`% of all characters
 in this range has at least one feat. As I later discovered, this also somewhat correlates with the
 [data in DnDBeyond](https://twitter.com/BadEyeAdam/status/969435420676231169) though the percentages
 here are higher overall.
 
 
-Next logical step is to examine which classes picks which feats, and which feats 
+Next step is to examine which classes picks which feats, and which feats 
 are the most popular. The graph below shows which feat is selected the most and by which 
 class. Multiclassed characters are merged into their own category to reduce clutter.
-Any feat that is selected only once is removed. Again, mouse over the bars to see details.
+Any feat that is selected only twice or less is removed. Again, mouse over the bars to see details.
 
 ```{r featBar}
 featedChars = uniqueTable %>%
-    filter(!is.na(feats)) %>%
+    filter(feats!='') %>%
     mutate(justClass = {justClass[grepl('\\|',justClass)] = 'Multiclassed';justClass}) %>% 
     filter(justClass %in% names(which(table(justClass)>1)))
 class = featedChars$justClass
@@ -628,7 +521,7 @@ names(featPicks) = class
 featFrame = 
     featPicks %>% melt %>% {names(.) = c('Feat','Class');.} %>%
     mutate(Feat = factor(Feat,levels = names(sort(table(Feat),decreasing = TRUE)))) %>% 
-    filter(Feat %in% names(which(table(Feat)>1))) %>% group_by(Feat,Class) %>% summarize(Count = n())
+    filter(Feat %in% names(which(table(Feat)>2))) %>% group_by(Feat,Class) %>% summarize(Count = n())
 
 
 featFrame %>% 
@@ -706,7 +599,7 @@ We can also look into how feats synergize with each other. The network below sho
 are selected together. Unique connections are removed. Node sizes represent how many times a feat appeared together with another feat. The thickness of the lines between the nodes are determined
 by the number of characters both feats appear in.
 
-```{r featNetwork}
+```{r featNetwork,fig.width=7.5,fig.height=7.5}
 featCoOccurence = uniqueTable %>% filter(grepl("\\|",feats)) %$% feats
 uniqueFeats = featCoOccurence %>% strsplit('\\|') %>% unlist %>% table %>% sort(decreasing = TRUE) %>% 
     {.[.>0]}%>% names
@@ -720,6 +613,7 @@ for (i in seq_along(uniqueFeats)){
         }
     }
 }
+uniqueFeats %<>% str_replace(' ','\n')
 
 rownames(adjMatrix) = uniqueFeats
 colnames(adjMatrix) = uniqueFeats
@@ -776,7 +670,7 @@ uniqueClasses =   coOccurence %>%
     table %>% 
     sort(decreasing = TRUE) %>%
     names
-uniqueClasses = uniqueClasses[!uniqueClasses %in% 'Artificer']
+uniqueClasses = uniqueClasses[uniqueClasses %in% legitClasses]
 
 adjMatrix = matrix(0,nrow= length(uniqueClasses),ncol = length(uniqueClasses))
 
@@ -911,12 +805,12 @@ highLevel = uniqueTable %>% filter(levelGroup %>% as.integer %>% {.>1})
 HLmultiClassed = highLevel %>% filter(grepl('\\|',justClass))
 HLsingleClassed = highLevel %>% filter(!grepl('\\|',justClass))
 
-singleClassedFeaters = sum(!is.na(HLsingleClassed$feats))
+singleClassedFeaters = sum(HLsingleClassed$feats!='')
 
-multiClassedFeaters = sum(!is.na(HLmultiClassed$feats))
+multiClassedFeaters = sum(HLmultiClassed$feats!='')
 pVal = phyper(multiClassedFeaters,
               multiClassedFeaters + singleClassedFeaters,
-              sum(is.na(uniqueTable$feats)),
+              sum(uniqueTable$feats!=''),
               nrow(multiClassed), lower.tail = FALSE, log.p = FALSE)
 ```
 
@@ -930,6 +824,81 @@ to get feats to optimize their builds. Indeed, we see that `r round(multiClassed
 of  multiclassed characters above level 3 chose to get a feat as opposed to 
 `r round(singleClassedFeaters/nrow(HLsingleClassed)*100)`% of single classed counterparts.
 A modest yet statistically significant difference (p=`r format.pval(pVal,digits = 2)`).
+
+## Are your spells rare?
+
+Like alignment, spells were annoying to deal with. The app only allows writing free
+text as spells and doesn't automatically fill anything other than cleric domain spells.
+Some casters don't even seem to bother with filling anything and when they do, they sometimes
+shorten the name of the spell or add things like damage dice next to it. Thanks to
+some computer magic (string distances to all existing spell names), we can identify
+what they are trying to say with a satisfying accuracy. The low level heavy nature of the
+dataset also strikes again as higher level spells appear less and less frequent.
+
+Below you see how frequently a spell is chosen by each class. Spells chosen
+by less than 3 people are removed. I also totally ignored multiclassed characters
+here because I'm not going to bother with trying to decide which spell came from
+which class.
+
+If you don't see high level spells that means not enough people agreed on any particular
+spells to make it to the table
+
+```{r spells}
+# for (x in c('Wizard','Cleric','Sorcerer','Druid','Warlock','Bard')){
+c('Wizard','Cleric','Sorcerer','Druid','Warlock','Bard') %>% lapply(function(x){
+    
+    classFrame = singleClassed[singleClassed$justClass %in% x,] 
+    
+    spellNames = classFrame %$% processedSpells %>% strsplit('\\|') %>% map(str_extract,'.*?(?=\\*)') %>% unlist
+    spellLevels = classFrame %$% processedSpells %>% strsplit('\\|') %>% map(str_extract,'(?<=\\*).*') %>% unlist %>% as.integer
+    
+    levelCount = classFrame %$% processedSpells %>% strsplit('\\|') %>% map(str_extract,'(?<=\\*).*') %>% map(unique) %>% unlist %>% as.integer() %>% table
+
+    
+    frame = data.frame(spellNames,spellLevels,levelCount = as.integer(levelCount[spellLevels %>% as.character]),stringsAsFactors = FALSE) %>% 
+        arrange(spellLevels) %>% group_by(spellNames,spellLevels,levelCount) %>% summarise(count = n()) %>% ungroup() %>% arrange(spellLevels,desc(count)) %>% 
+        mutate(`%` = round(count/levelCount*100)) %>% filter(levelCount>1 & `%` >10 & count>2)
+    
+    groupSep = frame$spellLevels %>% duplicated() %>% not %>% which
+    groupSep = c(groupSep,nrow(frame))
+    groupLevels= frame$spellLevels %>% unique %>% paste('Level',.)
+    groupLevels[groupLevels %in% 'Level 0'] = 'Cantrip'
+    
+    frame %<>% select(spellNames,count,`%`)
+    
+    kbl = kable(frame,caption = x,format = 'html') %>% 
+        kable_styling("striped", full_width = F) 
+    
+    for(i in seq_along(groupLevels)){
+        kbl %<>% group_rows(groupLevels[i],groupSep[i],groupSep[i+1]-1)
+    }
+    
+    kbl %>%  scroll_box(width = "100%", height = "250px") %>% HTML()
+}) -> tables
+
+
+
+
+div(
+    fluidRow(
+        column(4,
+               tables[[1]]),
+        column(4,
+               tables[[2]]),
+        column(4,
+               tables[[3]])),
+    fluidRow(
+        column(4,
+               tables[[4]]),
+        column(4,
+               tables[[5]]),
+        column(4,
+               tables[[6]])
+        
+    )
+)
+
+```
 
 ## Is your game day rare?
 
@@ -1019,7 +988,7 @@ are actually statistacilly significant. Sorry about that. Didn't want to fill th
 too much math. For instance we can see that we have
 `r battleMasterCount` battle masters
 vs `r championCount` champions. This is not a statistically significant difference based on our sample size
-so we cannot state with high confidence that the battle master is the more popular choice. 
+so we cannot state with high confidence that one is more popular than the other.
 
 If you are interested in significance of any of these measures, you can take a peak at this [article](https://en.wikipedia.org/wiki/Margin_of_error) on wikipedia where formulas needed are explained.
 For some of these at least you should be able to get the information you need from the article.
@@ -1027,6 +996,76 @@ For some of these at least you should be able to get the information you need fr
 If you have any questions, you can [mail me](mailto:ogan.mancarci@gmail.com). Mention "dndstats"
 somewhere in the
 text so you won't be sent to spam.
+
+
+## Data access
+
+This dataset is present in 2 forms: in its entirety that includes duplicates
+of characters and filtered version that only includes unique characters.
+
+Go [here](https://github.com/oganm/dndstats/blob/master/docs/charTable.tsv) for the complete data and [here](https://github.com/oganm/dndstats/blob/master/docs/uniqueTable.tsv) for the filtered one. Click the raw button
+to get them in plain text. Both have the same columns as explained below. 
+The code to generate these tables can be found [here](https://github.com/oganm/dndstats/blob/master/dataProcess.R).
+
+Below are the descriptions of the columns in the files. If you think something you'd be interested
+in is missing, you can let me know.
+
+**name:** This column has hashes that represent character names. If the hashes are
+the same, that means the characters are the same. Real names are removed
+to protect character anonymity. Yes D&D characters have rights.
+
+**race:** This is the race field as it come out of the application. It is not really
+helpful as subrace and race information all mixed up together and unevenly available.
+It also includes some homebrew content. You probably want to use the **processedRace**
+column if you are interested in this.
+
+**background:** Background as it comes out of the application.
+
+**date:** Time & date of input. Dates before 2018-04-16 are unreliable as some has accidentally changed
+while moving files around.
+
+**class:** Class and level. Different classes are separated by `|` when needed.
+
+**justClass:** Class without level. Different classes are separated by `|` when needed.
+
+**subclass:** Subclasses. Again, separated by `|` when needed.
+
+**level:** Total character level.
+
+**feats:** Feats chosen by character. Separated by `|` when needed.
+
+**HP:** Character HP.
+
+**AC:** Character AC.
+
+**Str, Dex, Con, Int, Wis, Cha:** ability scores
+
+**alignment:** Alignment free text field. It is a mess, don't touch it. See **processedAlignment**,**good** and **lawful** instead.
+
+**skills:** List of skills with proficiency.  Separated by `|`.
+
+**weapons:** List weapons. Separated by `|`. It is somewhat of a mess as it allows free text inputs. See **processedWeapons**.
+
+**spells:** List of spells and their levels. Spells are separated by `|`s. Each spell has its level next to it
+separated by `*`s. This is a huge mess as its a free text field and some users included things like damage dice in them. See **processedSpells**.
+
+**day:** A shortened version of **date**. Only includes day information.
+
+**processedAlignment:** Processed version of the **alignment** column. Way people wrote up their alignments are manually sifted through and assigned to the matching aligmment. First character represents lawfulness (L, N, C), second one goodness (G,N,E). An empty string means alignment wasn't written or unclear.
+
+**good, lawful:** Isolated columns for goodness and lawfulness.
+
+**processedRace:** I have gone through the way **race** column is filled by the app and asigned them to correct
+races. If empty, indiciates a homebrew race not natively supported by the app.
+
+**processedSpells:** Formatting is same as the **spells** column but it is cleaned up.  Using string similarity I tried
+to match the spells to the full list of spells available in the official publications. The spell is removed if the spell I guessed does not have the correct level or doesn't include all words of the original spell and has too many modifications to be recognizable. It may have a few false matches but it should be mostly fine
+
+**processedWeapons:** Similar to **processedSpells**, **weapons** column is matched to the closest official weapon with some restrictions.
+
+**levelGroup:** splits levels into groups as used in the feat percentage plot. Only present in the filtered data
+but easy enough to make on your own.
+
 
 ## About this document
 
@@ -1038,9 +1077,12 @@ The code blocks within the source code is licensed under [MIT license](https://o
 
 ## Changelog
 
-**28 July 2018:** 
+**18 August 2018:**
 
-* Initial release
+* Data from additional 82 characters incorporated. No significant changes observed.
+* Links to the data added
+* Spell information added
+* Feat bar plot now filters any feat that is taken less than 3 times instead of 2
 
 **2 August 2018:** 
 
@@ -1050,12 +1092,10 @@ The code blocks within the source code is licensed under [MIT license](https://o
 * Claim about increased decency of Half-Orcs softened
 * Changelog added
 
-<!-- # Supplementary figures -->
+**28 July 2018:** 
 
-<!-- I have some more free time now so I thought I could look at a few things that I -->
-<!-- missed the first time -->
+* Initial release
 
-<!-- ## Supplementary info - Are your skills rare -->
 
-<!-- ## Supplementary info - Are your spells rare -->
+
 
