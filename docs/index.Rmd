@@ -491,13 +491,22 @@ uniqueTable %>%
     ylab('% with at least one feat') + xlab('Level Interval') + 
     ggtitle('Feat adoption by character levels')
 
+commonPlayTable = uniqueTable %>% filter(as.integer(levelGroup) %in% c(2,3,4))
+commonPlayFeatRate = commonPlayTable %>% {sum(.$feats!='')/nrow(.)}
+
 ```
 
-It can be postulated players spend most of their time between levels 4-15. `r uniqueTable %>% filter(as.integer(levelGroup) %in% c(2,3,4)) %>% {round(sum(.$feats!='')/nrow(.)*100)}`% of all characters
+It can be postulated players spend most of their time between levels 4-15. `r round(commonPlayFeatRate*100)`% of all characters
 in this range has at least one feat. As I later discovered, this also somewhat correlates with the
 [data in DnDBeyond](https://twitter.com/BadEyeAdam/status/969435420676231169) though the percentages
 here are higher overall.
 
+**Note:** I am getting messages about how this clearly shows how Crawford was super wrong.
+That's not very accurate. It is true that my data shows a higher proportion of feat
+adoption than the D&D beyond data, however we cannot conclusively reject the statement
+"a majority of D&D characters don't use feats" due to possible sampling errors. If we 
+take level 4-15 interval into consideration, our sample size is `r nrow(commonPlayTable)`.
+Based on this we have a `r round(sqrt( commonPlayFeatRate*(1- commonPlayFeatRate)/nrow(commonPlayTable)) * 1.96*100)`% margin of error (95% confidence) on that `r round(commonPlayFeatRate*100)`%.
 
 Next step is to examine which classes picks which feats, and which feats 
 are the most popular. The graph below shows which feat is selected the most and by which 
@@ -1081,6 +1090,7 @@ The code blocks within the source code is licensed under [MIT license](https://o
 
 * Fix bug that counts the percentage of people who wrote their alignments down wrong
 * Flip alignment axes
+* Disclaimer about feat adoption
 
 **18 August 2018:**
 
