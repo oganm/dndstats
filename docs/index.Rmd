@@ -271,7 +271,7 @@ div(ply,align='center')
 Analysis of alignment in this dataset is difficult because unlike most other fields, 
 it is not mandatory. It also isn't something you are likely to forget about your
 character so there isn't much incentive to fill it in.
-Only `r round(sum(!is.na(uniqueTable$alignment))/nrow(uniqueTable)*100)`% of
+Only `r round(sum(uniqueTable$alignment != '')/nrow(uniqueTable)*100)`% of
 characters actually filled this field. I know I only filled it myself when testing
 my applications. It is entirely possible for the users' choice to fill this box
 to introduce a bias so take these results with a grain of salt
@@ -279,7 +279,7 @@ to introduce a bias so take these results with a grain of salt
 Also, since its a free text field, some manual
 processing is required to make the most of this information 
 (looking at you fellows with the "Awesome" and "Super Good" alignments). But that is
-still `r sum(!is.na(uniqueTable$alignment))` characters so there you go:
+still `r sum(uniqueTable$alignment != '')` characters so there you go:
 
 The plot below shows character counts for each alignment.
 
@@ -1076,6 +1076,10 @@ The text of this document is licensed under [CC BY 4.0](https://creativecommons.
 The code blocks within the source code is licensed under [MIT license](https://opensource.org/licenses/MIT).
 
 ## Changelog
+
+**18 August 2018 2:**
+
+* Fix bug that counts the percentage of people who wrote their alignments down wrong
 
 **18 August 2018:**
 
