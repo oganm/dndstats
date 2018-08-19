@@ -26,7 +26,7 @@ Below are the descriptions of the columns in the files. If you think something y
 in is missing, you can let me know.
 
 **name:** This column has hashes that represent character names. If the hashes are
-the same, that means the characters are the same. Real names are removed
+the same, that means the names are the same. Real names are removed
 to protect character anonymity. Yes D&D characters have rights.
 
 **race:** This is the race field as it come out of the application. It is not really
