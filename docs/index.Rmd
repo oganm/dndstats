@@ -112,7 +112,7 @@ Table of Contents
 
 *Ogan Mancarci, 28 July 2018*
 
-*Edited: 18 August 2018 (see [changlelog](#changelog))*
+*Edited: 19 August 2018 (see [changlelog](#changelog))*
 
 ## Introduction
 
@@ -301,7 +301,8 @@ alignmentCounts %>% ggplot(aes(y = good,
     scale_fill_continuous(low = 'white',high = '#46A948',na.value = 'white') + 
     geom_text() + 
     ylab('Good/Evil') +
-    xlab('Chaotic/Lawful') +
+    xlab('Lawful/Chaotic') +
+    scale_x_discrete(limits = c('L','N','C')) +
     theme(legend.position = 'none')->p
 p
 ```
@@ -344,7 +345,7 @@ classAlignments %>% ggplot(aes(y = `Good/Evil`,x = `Chaotic/Lawful`, color = Cla
     scale_y_continuous(breaks = c(1,2,3),
                        labels = c('E','N','G'),limits = c(1,3)) + 
     scale_x_continuous(breaks = c(1,2,3),
-                       labels = c('C','N','L'), limits = c(1,3))+
+                       labels = c('C','N','L'),limits = c(3,1), trans = 'reverse')+
     ylab('Good/Evil') +
     xlab('Chaotic/Lawful') + 
     scale_color_manual(values = barPalette) ->p
@@ -401,7 +402,7 @@ backgroundAlignment %>% ggplot(aes(y = `Good/Evil`,x = `Chaotic/Lawful`, color =
     scale_y_continuous(breaks = c(1,2,3),
                        labels = c('E','N','G'),limits = c(1,3)) + 
     scale_x_continuous(breaks = c(1,2,3),
-                       labels = c('C','N','L'), limits = c(1,3))+
+                       labels = c('C','N','L'),limits = c(3,1), trans = 'reverse')+
     ylab('Good/Evil') +
     xlab('Chaotic/Lawful') ->p# + 
     # scale_color_manual(values = barPalette) 
@@ -437,7 +438,7 @@ raceAlignment %>% ggplot(aes(y = `Good/Evil`,x = `Chaotic/Lawful`, color = Race,
     scale_y_continuous(breaks = c(1,2,3),
                        labels = c('E','N','G'),limits = c(1,3)) + 
     scale_x_continuous(breaks = c(1,2,3),
-                       labels = c('C','N','L'), limits = c(1,3))+
+                       labels = c('C','N','L'),limits = c(3,1), trans = 'reverse')+
     ylab('Good/Evil') +
     xlab('Chaotic/Lawful') +
     scale_color_manual(values = barPalette) ->p# + 
@@ -1089,6 +1090,7 @@ The code blocks within the source code is licensed under [MIT license](https://o
 **19 August 2018:**
 
 * Typo in data release. Same name hash means names are the same not characters.
+* Alignment flip again to match memes
 
 **18 August 2018 2:**
 
