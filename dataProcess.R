@@ -1,4 +1,4 @@
-library(import5eChar)
+library(import5eChar) # github.com/oganm/import5eChar
 library(purrr)
 library(readr)
 library(glue)
@@ -6,9 +6,13 @@ library(digest)
 library(dplyr)
 library(XML)
 library(ogbox) # github.com/oganm/ogbox
-library(wizaRd)
+library(wizaRd) # github.com/oganm/wizaRd
 library(stringr)
+library(memoise)
 
+# memoImportChar = memoise(importCharacter)
+# saveRDS(memoImportChar,'memoImportChar.rds')
+memoImportChar = readRDS('/home/oganm/gitRepos/DnDStatistics/memoImportChar.rds')
 
 # get all char files saved everywhere
 charFiles = c(list.files('/srv/shiny-server/printSheetApp/chars/',full.names = TRUE),
@@ -20,8 +24,9 @@ charFiles = c(list.files('/srv/shiny-server/printSheetApp/chars/',full.names = T
 print('reading char files')
 # use import5eChar to read the all of them
 chars = charFiles %>% lapply(function(x){
-    importCharacter(file = x)
+    memoImportChar(file = x)
 })
+saveRDS(memoImportChar,'memoImportChar.rds')
 
 # get date information. dates before 2018-04-16 are not reliable 
 fileInfo = file.info(charFiles) 

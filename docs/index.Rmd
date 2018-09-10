@@ -112,7 +112,7 @@ Table of Contents
 
 *Ogan Mancarci, 28 July 2018*
 
-*Edited: 19 August 2018 (see [changlelog](#changelog))*
+*Edited: 9 September 2018 (see [changlelog](#changelog))*
 
 ## Introduction
 
@@ -619,11 +619,18 @@ adjMatrix = matrix(0,nrow= length(uniqueFeats),ncol = length(uniqueFeats))
 for (i in seq_along(uniqueFeats)){
     for(j in seq_along(uniqueFeats)){
         if(i !=j){
-            adjMatrix[i,j] = sum(grepl(x = featCoOccurence,pattern = uniqueFeats[i]) &  grepl(x = featCoOccurence,pattern = uniqueFeats[j]))
+            feati = grepl(x = featCoOccurence,
+                          pattern = paste0('(\\||^)',uniqueFeats[i], ('(\\||$)')))
+            featj = grepl(x = featCoOccurence,
+                          pattern = paste0('(\\||^)',uniqueFeats[j], ('(\\||$)')))
+            
+            adjMatrix[i,j] = sum(feati & featj)
         }
     }
 }
 uniqueFeats %<>% str_replace(' ','\n')
+
+
 
 rownames(adjMatrix) = uniqueFeats
 colnames(adjMatrix) = uniqueFeats
@@ -646,7 +653,7 @@ set.seed(9)
 plot(network,
      vertex.frame.color="white",
      vertex.label.color="black",
-     vertex.size = strength(network)*2.5,
+     vertex.size = strength(network)*1.5,
      main = 'Feat synergy network',
      asp = 1)
 ```
@@ -1086,6 +1093,9 @@ The text of this document is licensed under [CC BY 4.0](https://creativecommons.
 The code blocks within the source code is licensed under [MIT license](https://opensource.org/licenses/MIT).
 
 ## Changelog
+
+**9 September 2018:**
+* Data from 100 more characters added.
 
 **19 August 2018:**
 
